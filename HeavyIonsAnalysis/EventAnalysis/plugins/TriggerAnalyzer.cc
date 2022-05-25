@@ -53,6 +53,7 @@ private:
   std::vector<std::string> hltNames_;
   std::vector<std::string> l1tNames_;
   edm::EDGetTokenT<edm::TriggerResults> hltResultsToken_;
+  edm::ESGetToken<L1TUtmTriggerMenu, L1TUtmTriggerMenuRcd> l1tMenuToken_;
   HLTPrescaleProvider hltPrescaleProvider_;
 };
 
@@ -68,6 +69,7 @@ TriggerAnalyzer::TriggerAnalyzer(edm::ParameterSet const& ps):
   hltNames_(ps.getParameter<std::vector<std::string>>("hltDummyBranches")),
   l1tNames_(ps.getParameter<std::vector<std::string>>("l1tDummyBranches")),
   hltResultsToken_(consumes<edm::TriggerResults>(ps.getParameter<edm::InputTag>("hltResults"))),
+  l1tMenuToken_{esConsumes<edm::Transition::BeginRun>()},
   hltPrescaleProvider_(ps, consumesCollector(), *this)
 {
   // find process name
@@ -195,10 +197,8 @@ TriggerAnalyzer::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup)
   }
 
   // initialize L1T information
-  edm::ESHandle<L1TUtmTriggerMenu> l1tMenu;
-  iSetup.get<L1TUtmTriggerMenuRcd>().get(l1tMenu);
-  if (!l1tMenu.isValid()) throw(cms::Exception("TriggerAnalyzer") << "Failed to get L1T menu!!");
-  l1tAlgoMap_ = l1tMenu->getAlgorithmMap();
+  const auto& l1tMenu = iSetup.getData(l1tMenuToken_);
+  l1tAlgoMap_ = l1tMenu.getAlgorithmMap();
   
   if (l1tInfo_.empty()) {
     if (!l1tNames_.empty() && l1tNames_[0]=="@ALL") {
