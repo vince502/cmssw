@@ -73,6 +73,9 @@ __global__ void kernel_BLFastFit(Tuples const *__restrict__ foundNtuplets,
 
     auto nHits = foundNtuplets->size(tkid);
 
+//    std::cout << "nHits : " << nHits << ", nHitsH : " << nHitsH << std::endl;
+//    printf("nHits : %d, nHitsH : %d\n", nHits, nHitsH);
+
     assert(nHits >= nHitsL);
     assert(nHits <= nHitsH);
 

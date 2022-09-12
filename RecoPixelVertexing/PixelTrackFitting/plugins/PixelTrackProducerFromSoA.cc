@@ -155,6 +155,8 @@ void PixelTrackProducerFromSoA::produce(edm::StreamID streamID,
   auto const &fit = tsoa.stateAtBS;
   auto const &hitIndices = tsoa.hitIndices;
   auto nTracks = tsoa.nTracks();
+  // check number of Tracks in tsoa
+  // std::cout << "nTrakcs: " << nTracks << std::endl;
 
   tracks.reserve(nTracks);
 
@@ -167,6 +169,7 @@ void PixelTrackProducerFromSoA::produce(edm::StreamID streamID,
       sortIdxs.begin(), sortIdxs.end(), [&](int32_t const i1, int32_t const i2) { return tsoa.pt(i1) > tsoa.pt(i2); });
 
   //store the index of the SoA: indToEdm[index_SoAtrack] -> index_edmTrack (if it exists)
+  // print sortIdx
   indToEdm.resize(sortIdxs.size(), -1);
   for (const auto &it : sortIdxs) {
     auto nHits = tsoa.nHits(it);
