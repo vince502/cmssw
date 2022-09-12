@@ -95,7 +95,9 @@ namespace pixelTrack {
   constexpr uint32_t maxNumber() { return 2 * 1024; }
 #else
   // tested on MC events with 55-75 pileup events
-  constexpr uint32_t maxNumber() { return 32 * 1024; }
+//  constexpr uint32_t maxNumber() { return 32 * 1024; }
+//  constexpr uint32_t maxNumber() { return 128 * 1024; }
+  constexpr uint32_t maxNumber() { return 1024 * 1024; }
 #endif
 
   using TrackSoA = TrackSoAHeterogeneousT<maxNumber()>;
