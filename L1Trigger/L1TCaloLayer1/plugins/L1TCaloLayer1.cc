@@ -81,7 +81,6 @@ private:
   std::vector<std::array<std::array<std::array<uint32_t, nEtBins>, nCalSideBins>, nCalEtaBins> > ecalLUT;
   std::vector<std::array<std::array<std::array<uint32_t, nEtBins>, nCalSideBins>, nCalEtaBins> > hcalLUT;
   std::vector<std::array<std::array<uint32_t, nEtBins>, nHfEtaBins> > hfLUT;
-  std::vector<unsigned long long int> hcalFBLUT;
 
   std::vector<unsigned int> ePhiMap;
   std::vector<unsigned int> hPhiMap;
@@ -94,7 +93,6 @@ private:
   bool useECALLUT;
   bool useHCALLUT;
   bool useHFLUT;
-  bool useHCALFBLUT;
   bool verbose;
   bool unpackHcalMask;
   bool unpackEcalMask;
@@ -130,8 +128,7 @@ L1TCaloLayer1::L1TCaloLayer1(const edm::ParameterSet& iConfig)
       useECALLUT(iConfig.getParameter<bool>("useECALLUT")),
       useHCALLUT(iConfig.getParameter<bool>("useHCALLUT")),
       useHFLUT(iConfig.getParameter<bool>("useHFLUT")),
-      useHCALFBLUT(iConfig.getParameter<bool>("useHCALFBLUT")),
-      verbose(iConfig.getUntrackedParameter<bool>("verbose")),
+      verbose(iConfig.getParameter<bool>("verbose")),
       unpackHcalMask(iConfig.getParameter<bool>("unpackHcalMask")),
       unpackEcalMask(iConfig.getParameter<bool>("unpackEcalMask")),
       fwVersion(iConfig.getParameter<int>("firmwareVersion")) {
@@ -297,7 +294,6 @@ void L1TCaloLayer1::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
                               ecalLUT,
                               hcalLUT,
                               hfLUT,
-                              hcalFBLUT,
                               ePhiMap,
                               hPhiMap,
                               hfPhiMap,
@@ -306,7 +302,6 @@ void L1TCaloLayer1::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
                               useECALLUT,
                               useHCALLUT,
                               useHFLUT,
-                              useHCALFBLUT,
                               fwVersion)) {
     LOG_ERROR << "L1TCaloLayer1::beginRun: failed to fetch LUTS - using unity" << std::endl;
     std::array<std::array<std::array<uint32_t, nEtBins>, nCalSideBins>, nCalEtaBins> eCalLayer1EtaSideEtArray;
@@ -357,22 +352,10 @@ void L1TCaloLayer1::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
 
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void L1TCaloLayer1::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
-  //Description set to reflect default present in simCaloStage2Layer1Digis_cfi.py
-  //Currently redundant, but could be adjusted to provide defaults in case additional LUT
-  //checks are added and before other configurations adjust to match.
+  //The following says we do not know what parameters are allowed so do no validation
+  // Please change this to state exactly what you do use, even if it is no parameters
   edm::ParameterSetDescription desc;
-  desc.add<edm::InputTag>("ecalToken", edm::InputTag("simEcalTriggerPrimitiveDigis"));
-  desc.add<edm::InputTag>("hcalToken", edm::InputTag("simHcalTriggerPrimitiveDigis"));
-  desc.add<bool>("useLSB", true);
-  desc.add<bool>("useCalib", true);
-  desc.add<bool>("useECALLUT", true);
-  desc.add<bool>("useHCALLUT", true);
-  desc.add<bool>("useHFLUT", true);
-  desc.add<bool>("useHCALFBLUT", false);
-  desc.addUntracked<bool>("verbose", false);
-  desc.add<bool>("unpackEcalMask", false);
-  desc.add<bool>("unpackHcalMask", false);
-  desc.add<int>("firmwareVersion", 1);
+  desc.setUnknown();
   descriptions.addDefault(desc);
 }
 

@@ -16,12 +16,8 @@ namespace l1t {
                                      bool useEmtfDisplacementInfo);
     static void fillRegionalMuonCand(
         RegionalMuonCand& mu, uint64_t dataword, int proc, tftype tf, bool isKbmtf, bool useEmtfDisplacementInfo);
-    static bool fillRegionalMuonShower(RegionalMuonShower& muShower,
-                                       std::vector<uint32_t> bxPayload,
-                                       int proc,
-                                       tftype tf,
-                                       bool useEmtfNominalTightShowers,
-                                       bool useEmtfLooseShowers);
+    static bool fillRegionalMuonShower(
+        RegionalMuonShower& muShower, std::vector<uint32_t> bxPayload, int proc, tftype tf, bool useEmtfShowers);
     static void generatePackedDataWords(const RegionalMuonCand& mu,
                                         uint32_t& raw_data_00_31,
                                         uint32_t& raw_data_32_63,
@@ -29,8 +25,7 @@ namespace l1t {
                                         bool useEmtfDisplacementInfo);
     static void generatePackedShowerPayload(const RegionalMuonShower& shower,
                                             std::array<uint32_t, 6>& payload,
-                                            bool useEmtfNominalTightShowers,
-                                            bool useEmtfLooseShowers);
+                                            bool useEmtfShowers);
     static uint64_t generate64bitDataWord(const RegionalMuonCand& mu, bool isKbmtf, bool useEmtfDisplacementInfo);
     static int generateRawTrkAddress(const RegionalMuonCand&, bool isKalman);
 
@@ -56,12 +51,11 @@ namespace l1t {
     static constexpr unsigned emtfPtUnconstrainedShift_ = 20;
     static constexpr unsigned trackAddressMask_ = 0x1FFFFFFF;
     static constexpr unsigned trackAddressShift_ = 2;
-    static constexpr unsigned kEmtfShowerMask = 0x1;
-    static constexpr unsigned kEmtfShowerStandardFrame = 1;
-    static constexpr unsigned kEmtfShowerExtendedFrame = 3;
-    static constexpr unsigned kEmtfShowerOneNominalShift = 18;
-    static constexpr unsigned kEmtfShowerOneLooseShift = kEmtfShowerOneNominalShift;
-    static constexpr unsigned kEmtfShowerOneTightShift = 19;
+    static constexpr unsigned emtfShowerMask_ = 0x1;
+    static constexpr unsigned emtfShowerInTimeFrame_ = 1;
+    static constexpr unsigned emtfShowerOOTFrame_ = 3;
+    static constexpr unsigned emtfShowerOneNominalShift_ = 18;
+    static constexpr unsigned emtfShowerOneTightShift_ = 19;
 
     // relative shifts within track address
     static constexpr unsigned bmtfTrAddrSegSelMask_ = 0xF;

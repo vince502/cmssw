@@ -5,7 +5,7 @@ CSCUpgradeAnodeLCTProcessor::CSCUpgradeAnodeLCTProcessor(unsigned endcap,
                                                          unsigned sector,
                                                          unsigned subsector,
                                                          unsigned chamber,
-                                                         CSCBaseboard::Parameters& conf)
+                                                         const edm::ParameterSet& conf)
     : CSCAnodeLCTProcessor(endcap, station, sector, subsector, chamber, conf) {
   if (!runPhase2_)
     edm::LogError("CSCUpgradeAnodeLCTProcessor|ConfigError")
