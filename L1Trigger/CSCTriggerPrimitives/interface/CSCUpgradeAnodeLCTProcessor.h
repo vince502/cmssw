@@ -21,7 +21,7 @@ public:
                               unsigned sector,
                               unsigned subsector,
                               unsigned chamber,
-                              CSCBaseboard::Parameters& conf);
+                              const edm::ParameterSet& conf);
 
   /** Default destructor. */
   ~CSCUpgradeAnodeLCTProcessor() override{};

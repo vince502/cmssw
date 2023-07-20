@@ -7,7 +7,7 @@
   in the endcap muon system.
 
   The logic is executed in the SectorProcessorShower class. Multiple options
-  are defined: "OneLoose", "TwoLoose", "OneNominal", "OneTight" 
+  are defined: "OneNominal", "TwoLoose"
  */
 
 // system include files

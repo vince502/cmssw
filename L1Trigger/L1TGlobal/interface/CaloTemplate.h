@@ -15,11 +15,10 @@
 
  * \new features: R. Cavanaugh
  *          - added LUT bit for LLP displaced jets
- *            Note: Calo Trig considers the DISP bit part of the
- *                  quality word, but uGT firmware considers the
+ *            Note: Calo Trig considers the DISP bit part of the 
+ *                  quality word, but uGT firmware considers the 
  *                  DISP bit to be distinct from the quality word.
- * \new features: Bernhard Arnold, Elisa Fontanesi                                                          
- *                - added etaWindows for the checkRangeEta function: it allows to use up to five eta cuts in L1 algorithms
+ *
  * $Date$
  * $Revision$
  *
@@ -58,11 +57,6 @@ public:
   CaloTemplate& operator=(const CaloTemplate&);
 
 public:
-  struct Window {
-    unsigned int lower;
-    unsigned int upper;
-  };
-
   /// typedef for a single object template
   struct ObjectParameter {
     unsigned int etLowThreshold;
@@ -76,7 +70,10 @@ public:
     unsigned int qualityLUT;
     unsigned int displacedLUT;  // Added for LLP Jets
 
-    std::vector<Window> etaWindows;
+    unsigned int etaWindow1Lower;
+    unsigned int etaWindow1Upper;
+    unsigned int etaWindow2Lower;
+    unsigned int etaWindow2Upper;
 
     unsigned int phiWindow1Lower;
     unsigned int phiWindow1Upper;

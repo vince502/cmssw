@@ -29,8 +29,10 @@ public:
   // constructor
   ComparatorCodeLUT(const edm::ParameterSet& conf);
 
+  void setESLookupTables(const CSCL1TPLookupTableCCLUT* conf);
+
   // runs the CCLUT procedure
-  void run(CSCCLCTDigi& digi, unsigned numCFEBs, const CSCL1TPLookupTableCCLUT* lookupTableCCLUT) const;
+  void run(CSCCLCTDigi& digi, unsigned numCFEBs) const;
 
 private:
   //calculates the id based on location of hits
@@ -46,6 +48,9 @@ private:
 
   // verbosity level
   unsigned infoV_;
+
+  // access to lookup tables via eventsetup
+  const CSCL1TPLookupTableCCLUT* lookupTableCCLUT_;
 };
 
 #endif

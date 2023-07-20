@@ -243,10 +243,13 @@ void TrackletProcessor::execute(unsigned int iSector, double phimin, double phim
   assert(outervmstubs_ != nullptr);
 
   //used to collect performance data
+  unsigned int countall = 0;
   unsigned int countsel = 0;
 
   unsigned int countteall = 0;
   unsigned int stubpairs = 0;
+
+  unsigned int ntedata = 0;
 
   unsigned int ninnerstubs = 0;
 
@@ -313,6 +316,7 @@ void TrackletProcessor::execute(unsigned int iSector, double phimin, double phim
         edm::LogVerbatim("Tracklet") << "Will break on too many tracklets in " << getName();
         break;
       }
+      countall++;
       const Stub* innerFPGAStub = stubpair.first;
       const L1TStub* innerStub = innerFPGAStub->l1tstub();
 
@@ -475,6 +479,7 @@ void TrackletProcessor::execute(unsigned int iSector, double phimin, double phim
         }
 
         if (!tedata.regions_.empty()) {
+          ntedata++;
           goodtedata = true;
         }
       }

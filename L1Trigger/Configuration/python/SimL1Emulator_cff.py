@@ -146,11 +146,6 @@ _phase2_siml1emulator.add( l1tTkStubsGmt )
 _phase2_siml1emulator.add( l1tTkMuonsGmt )
 _phase2_siml1emulator.add( l1tSAMuonsGmt )
 
-## fix for low-pt muons, this collection is a copy of the l1tTkMuonsGmt collection 
-## in which we only keep those low pt muons with an SA muon associated to it. 
-l1tTkMuonsGmtLowPtFix = l1tGMTFilteredMuons.clone()
-_phase2_siml1emulator.add( l1tTkMuonsGmtLowPtFix )
-
 # Tracker Objects
 # ########################################################################
 from L1Trigger.L1TTrackMatch.l1tTrackJets_cfi import *
@@ -158,9 +153,9 @@ from L1Trigger.L1TTrackMatch.l1tTrackFastJets_cfi import *
 from L1Trigger.L1TTrackMatch.l1tTrackerEtMiss_cfi import *
 from L1Trigger.L1TTrackMatch.l1tTrackerHTMiss_cfi import *
 # make the input tags consistent with the choice L1VertexFinder above
-l1tTrackJets.L1PVertexInputTag  = ("l1tVertexFinderEmulator","l1verticesEmulation")
+l1tTrackJets.L1PVertexCollection  = ("l1tVertexFinder", "l1vertices")
 l1tTrackFastJets.L1PrimaryVertexTag  = ("l1tVertexFinder", "l1vertices")
-l1tTrackJetsExtended.L1PVertexInputTag  = ("l1tVertexFinderEmulator","l1verticesEmulation")
+l1tTrackJetsExtended.L1PVertexCollection  = ("l1tVertexFinder", "l1vertices")
 #l1tTrackerEtMiss.L1VertexInputTag = ("l1tVertexFinder", "l1vertices")
 #l1tTrackerEtMissExtended.L1VertexInputTag = ("l1tVertexFinder", "l1vertices")
 
@@ -224,13 +219,6 @@ _phase2_siml1emulator.add(l1tMETPFProducer)
 # ########################################################################
 from L1Trigger.Phase2L1ParticleFlow.L1NNTauProducer_cff import *
 _phase2_siml1emulator.add(l1tNNTauProducerPuppi)
-
-
-# BJets
-# ########################################################################
-from L1Trigger.Phase2L1ParticleFlow.L1BJetProducer_cff import *
-_phase2_siml1emulator.add(L1TBJetsTask)
-
 
 # --> add modules
 from Configuration.Eras.Modifier_phase2_trigger_cff import phase2_trigger
