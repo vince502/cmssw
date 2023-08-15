@@ -440,8 +440,13 @@ void L1GlobalTrigger::produce(edm::Event &iEvent, const edm::EventSetup &evSetup
   // all objects in the GT system are defined in enum L1GtObject from
   // DataFormats/L1Trigger/L1GlobalTriggerReadoutSetupFwd
 
+  int daqNrGtfeBoards = 0;
+
   int daqNrFdlBoards = 0;
   int daqNrPsbBoards = 0;
+  int daqNrGmtBoards = 0;
+  int daqNrTcsBoards = 0;
+  int daqNrTimBoards = 0;
 
   //
   bool receiveMu = false;
@@ -477,6 +482,11 @@ void L1GlobalTrigger::produce(edm::Event &iEvent, const edm::EventSetup &evSetup
       //               in the record and ActiveBoardsMap, and active
       if ((iActiveBit < 0) || activeBoard) {
         switch (itBoard->gtBoardType()) {
+          case GTFE: {
+            daqNrGtfeBoards++;
+          }
+
+          break;
           case FDL: {
             daqNrFdlBoards++;
           }
@@ -563,6 +573,22 @@ void L1GlobalTrigger::produce(edm::Event &iEvent, const edm::EventSetup &evSetup
               }
             }
 
+          }
+
+          break;
+          case GMT: {
+            daqNrGmtBoards++;
+            receiveMu = true;
+          }
+
+          break;
+          case TCS: {
+            daqNrTcsBoards++;
+          }
+
+          break;
+          case TIM: {
+            daqNrTimBoards++;
           }
 
           break;

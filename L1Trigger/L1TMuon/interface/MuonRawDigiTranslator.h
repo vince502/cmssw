@@ -28,9 +28,7 @@ namespace l1t {
                                             int muInBx);
     static void generate64bitDataWord(
         const Muon& mu, uint32_t& raw_data_spare, uint64_t& dataword, int fedId, int fwId, int muInBx);
-    static std::array<std::array<uint32_t, 4>, 2> getPackedShowerDataWords(const MuonShower& shower,
-                                                                           int fedId,
-                                                                           int fwId);
+    static std::array<uint32_t, 4> getPackedShowerDataWords(const MuonShower& shower, int fedId, int fwId);
     static int calcHwEta(const uint32_t& raw, unsigned absEtaShift, unsigned etaSignShift);
 
     static constexpr unsigned ptMask_ = 0x1FF;

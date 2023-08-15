@@ -111,6 +111,8 @@ private:
           TTTrack_TrackWord::TrackBitLocations::kRinvMSB - 1, TTTrack_TrackWord::TrackBitLocations::kRinvLSB);
       ap_ufixed<TrackBitWidths::kPtSize, TrackBitWidths::kPtMagSize> ptEmulation;
       ptEmulation.V = ptEmulationBits.range();
+      //edm::LogInfo("L1TrackSelectionProducer") << "produce::Emulation track properties::ap_uint(bits) = " << ptEmulationBits.to_string(2)
+      //                                         << " ap_ufixed(bits) = " << ptEmulation.to_string(2) << " ap_ufixed(float) = " << ptEmulation.to_double();
       return ptEmulation.to_double() >= ptMin_;
     }
 
@@ -152,11 +154,7 @@ private:
     TTTrackWordAbsZ0MaxSelector(double absZ0Max) : absZ0Max_(absZ0Max) {}
     TTTrackWordAbsZ0MaxSelector(const edm::ParameterSet& cfg)
         : absZ0Max_(cfg.template getParameter<double>("absZ0Max")) {}
-    bool operator()(const L1Track& t) const {
-      double floatZ0 = t.undigitizeSignedValue(
-          t.getZ0Bits(), TTTrack_TrackWord::TrackBitWidths::kZ0Size, TTTrack_TrackWord::stepZ0, 0.0);
-      return std::abs(floatZ0) <= absZ0Max_;
-    }
+    bool operator()(const L1Track& t) const { return std::abs(t.getZ0()) <= absZ0Max_; }
 
   private:
     double absZ0Max_;
@@ -383,13 +381,9 @@ void L1TrackSelectionProducer::printTrackInfo(edm::LogInfo& log, const L1Track& 
     TTTrack_TrackWord::tanl_t etaEmulationBits = track.getTanlWord();
     ap_fixed<TrackBitWidths::kEtaSize, TrackBitWidths::kEtaMagSize> etaEmulation;
     etaEmulation.V = etaEmulationBits.range();
-    double floatTkZ0 = track.undigitizeSignedValue(
-        track.getZ0Bits(), TTTrack_TrackWord::TrackBitWidths::kZ0Size, TTTrack_TrackWord::stepZ0, 0.0);
-    double floatTkPhi = track.undigitizeSignedValue(
-        track.getPhiBits(), TTTrack_TrackWord::TrackBitWidths::kPhiSize, TTTrack_TrackWord::stepPhi0, 0.0);
-    log << "\t\t(" << ptEmulation.to_double() << ", " << etaEmulation.to_double() << ", " << floatTkPhi << ", "
+    log << "\t\t(" << ptEmulation.to_double() << ", " << etaEmulation.to_double() << ", " << track.getPhi() << ", "
         << track.getNStubs() << ", " << track.getBendChi2() << ", " << track.getChi2RZ() << ", " << track.getChi2RPhi()
-        << ", " << floatTkZ0 << ")\n";
+        << ", " << track.getZ0() << ")\n";
   }
 }
 
