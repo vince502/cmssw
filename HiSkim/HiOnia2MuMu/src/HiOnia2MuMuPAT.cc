@@ -51,6 +51,7 @@ HiOnia2MuMuPAT::HiOnia2MuMuPAT(const edm::ParameterSet& iConfig):
   onlySoftMuons_(iConfig.getParameter<bool>("onlySoftMuons")),
   onlySingleMuons_(iConfig.getParameter<bool>("onlySingleMuons")),
   doTrimuons_(iConfig.getParameter<bool>("doTrimuons")),
+  doTrimuons_(iConfig.getParameter<bool>("doDiquarkonia")),
   DimuonTrk_(iConfig.getParameter<bool>("DimuonTrk")),
   flipJpsiDirection_(iConfig.getParameter<int>("flipJpsiDirection")),
   Converter_(converter::TrackToCandidate(iConfig, consumesCollector())),
@@ -60,6 +61,7 @@ HiOnia2MuMuPAT::HiOnia2MuMuPAT(const edm::ParameterSet& iConfig):
   produces<pat::CompositeCandidateCollection>("");
   produces<pat::CompositeCandidateCollection>("trimuon");
   produces<pat::CompositeCandidateCollection>("dimutrk");
+  produces<pat::CompositeCandidateCollection>("diquarkonia");
 }
 
 
@@ -156,14 +158,17 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   if(flipJpsiDirection_>0 && !doTrimuons_) cout<<" ***** BEWARE !!! Undefined behaviour when flipJpsiDirection option is true, but not doTrimuons_ !"<<endl;
 
-  vector<double> muMasses, muMasses3, DimuTrkMasses;
+  vector<double> muMasses, muMasses3, muMasses4, DimuTrkMasses;
   muMasses.push_back( 0.1056583715 );  muMasses.push_back( 0.1056583715 );
   muMasses3.push_back( 0.1056583715 );  muMasses3.push_back( 0.1056583715 );  muMasses3.push_back( 0.1056583715 );
+  muMasses4.push_back( 0.1056583715 );  muMasses4.push_back( 0.1056583715 );  muMasses4.push_back( 0.1056583715 );  muMasses4.push_back( 0.1056583715 );
   DimuTrkMasses.push_back( 0.1056583715 );  DimuTrkMasses.push_back( 0.1056583715 );  DimuTrkMasses.push_back( trackMass_ ); //0.13957018
 
   std::unique_ptr<pat::CompositeCandidateCollection> oniaOutput(new pat::CompositeCandidateCollection);
   std::unique_ptr<pat::CompositeCandidateCollection> trimuOutput(new pat::CompositeCandidateCollection);
   std::unique_ptr<pat::CompositeCandidateCollection> dimutrkOutput(new pat::CompositeCandidateCollection);
+  std::unique_ptr<pat::CompositeCandidateCollection> diquarkoniaOutput(new pat::CompositeCandidateCollection);
+  std::unique_ptr<std::vector<TransientVertex> > dimuonVertices(new std::vector<TransientVertex>);
   
   Vertex thePrimaryV;
   Vertex theBeamSpotV; 
@@ -234,6 +239,7 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
   //std::cout<<"number of soft muons = "<<ourMuNb<<std::endl;
 
   if(onlySingleMuons_) goto skipMuonLoop;
+
  
   // JPsi candidates only from muons
   for(int i=0; i<ourMuNb; i++){
@@ -1215,11 +1221,176 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  for (std::map<std::string, reco::Vertex>::iterator i = userVertex.begin(); i != userVertex.end(); i++) { myCandTmp.addUserData(i->first , i->second); }
 	  // ---- Push back output of this Jpsi candidate ----  
 	  oniaOutput->push_back(myCandTmp);
+	  dimuonVertices->push_back(myVertex);
 	}
 
       }//flipJpsi (always 0 when flipJpsiDirection_==0, i.e. the loop runs only once)
     }//it2 muon
   }//it muon
+
+  unsigned dimuSize = oniaOutput->size();
+  for(auto idxDimu : ROOT::TSeqI(dimuSize)){
+	const pat::CompositeCandidate& outDimu1 = (*oniaOutput)[idxDimu];
+	const TransientVertex& dimuVertex1 = (*dimuonVertices)[idxDimu];
+	for( auto idxDimu2 : ROOT::TSeq( idxDimu+1, dimuSize ) ){
+		const pat::CompositeCandidate& outDimu2 = (*oniaOutput)[idxDimu2];
+		const TransientVertex& dimuVertex2 = (*dimuonVertices)[idxDimu2];
+  		//For kinematic constrained fit
+  		// KinematicParticleFactoryFromTransientTrack pFactory;
+  		// ParticleMass muon_mass = 0.1056583;
+  		// float muon_sigma = 0.0000000001;
+  		// ParticleMass pion_mass = 0.13957018;
+  		// float pion_sigma = 0.0000000001;
+  		// ParticleMass jp_mass = 3.09687;
+  		// MultiTrackKinematicConstraint* jpsi_c = new TwoTrackMassKinematicConstraint(jp_mass);
+  		// KinematicConstrainedVertexFitter KCfitter;
+
+    	std::map< std::string, int > userInt;
+    	std::map< std::string, float > userFloat;
+    	std::map< std::string, reco::Vertex > userVertex;
+    	std::map< std::string, reco::Track > userTrack;	
+    	Vertex theOriginalPV;
+    	int flipJpsi=0; //loop iterator in case of flipJpsiDirection_>0
+    	TransientVertex myVertex; 
+    	CachingVertex<5> VtxForInvMass; Measurement1D MassWErr;
+    	vector<TransientTrack> t_tks;
+    	float vChi2=-100, vNDF=1;
+
+    	pat::CompositeCandidate myCand;
+    	pat::CompositeCandidate myCandTmp;
+		
+		pat::CompostieCandidate didimu;
+		didimu.addDaughter(outDimu1,"dimuon1");
+		didimu.addDaughter(outDimu2,"dimuon2");
+
+		LorentzVector diquarkonia = outDimu1.p4() + outDimu2.p4();
+		didimu.setP4(diquarkonia);
+		didimu.setCharge(outDimu1.charge() + outDimu2.charge());
+
+    	// ---- build the dimuon secondary vertex ----
+    	t_tks.push_back(theTTBuilder->build(outDimu1));  // pass the reco::Track, not  the reco::TrackRef (which can be transient)
+    	t_tks.push_back(theTTBuilder->build(outDimu2)); // otherwise the vertex will have transient refs inside.
+
+    	VtxForInvMass = vtxFitter.vertex( t_tks );
+    	MassWErr = massCalculator.invariantMass( VtxForInvMass, muMasses );
+    	userFloat["diQMassErr"] = MassWErr.error();
+
+    	myVertex = vtxFitter.vertex(t_tks);
+
+    	if (myVertex.isValid()) {
+			if (resolveAmbiguity_) {
+				float minDz = 999999.;
+	
+				TwoTrackMinimumDistance ttmd;
+				bool status = ttmd.calculate( GlobalTrajectoryParameters(
+											 GlobalPoint(myVertex.position().x(), myVertex.position().y(), myVertex.position().z()),
+											 GlobalVector(myCand.px(),myCand.py(),myCand.pz()),TrackCharge(0),&(*bField)),
+							GlobalTrajectoryParameters(
+											 GlobalPoint(bs.position().x(), bs.position().y(), bs.position().z()),
+											 GlobalVector(bs.dxdz(), bs.dydz(), 1.),TrackCharge(0),&(*bField)));
+				float extrapZ=-9E20;
+				if (status) extrapZ=ttmd.points().first.z();
+	
+				for(VertexCollection::const_iterator itv = priVtxs->begin(), itvend = priVtxs->end(); itv != itvend; ++itv) {
+					// only consider good vertices
+					if ( itv->isFake() || fabs(itv->position().z()) > 25 || itv->position().Rho() > 2 || itv->tracksSize() < 2) continue;
+					float deltaZ = fabs(extrapZ - itv->position().z()) ;
+					if ( deltaZ < minDz ) {
+						minDz = deltaZ;		
+						thePrimaryV = Vertex(*itv);
+					}
+				}
+			}//if resolve ambiguity
+
+			vChi2 = myVertex.totalChiSquared();
+			vNDF  = myVertex.degreesOfFreedom();
+			float vProb(TMath::Prob(vChi2,(int)vNDF));
+
+			userFloat["vNChi2"] = (vChi2/vNDF);
+			userFloat["vProb"] = vProb;
+
+			TVector3 vtx, vtx3D;
+			TVector3 pvtx, pvtx3D;
+			VertexDistanceXY vdistXY;
+			VertexDistance3D vdistXYZ;
+
+			vtx.SetXYZ(myVertex.position().x(),myVertex.position().y(),0);
+			TVector3 pperp(jpsi.px(), jpsi.py(), 0);
+			AlgebraicVector3 vpperp(pperp.x(), pperp.y(), 0.);
+
+			vtx3D.SetXYZ(myVertex.position().x(),myVertex.position().y(),myVertex.position().z());
+			TVector3 pxyz(jpsi.px(), jpsi.py(), jpsi.pz());
+			AlgebraicVector3 vpxyz(pxyz.x(), pxyz.y(), pxyz.z());
+
+			///DCA
+			TrajectoryStateClosestToPoint mu1TS = t_tks[0].impactPointTSCP();
+			TrajectoryStateClosestToPoint mu2TS = t_tks[1].impactPointTSCP();
+			float dca = 1E20;
+			if (mu1TS.isValid() && mu2TS.isValid()) {
+			  ClosestApproachInRPhi cApp;
+			  cApp.calculate(mu1TS.theState(), mu2TS.theState());
+			  if (cApp.status() ) dca = cApp.distance();
+			}
+			userFloat["DCA"] = dca;
+			///end DCA
+
+
+			// lifetime using PV
+			pvtx.SetXYZ(thePrimaryV.position().x(),thePrimaryV.position().y(),0);
+			TVector3 vdiff = vtx - pvtx;
+			double cosAlpha = vdiff.Dot(pperp)/(vdiff.Perp()*pperp.Perp());
+			Measurement1D distXY = vdistXY.distance(Vertex(myVertex), thePrimaryV);
+			double ctauPV = distXY.value()*cosAlpha*3.096916/pperp.Perp();
+			GlobalError v1e = (Vertex(myVertex)).error();
+			GlobalError v2e = thePrimaryV.error();
+			AlgebraicSymMatrix33 vXYe = v1e.matrix()+ v2e.matrix();
+			double ctauErrPV = sqrt(ROOT::Math::Similarity(vpperp,vXYe))*3.096916/(pperp.Perp2());
+
+			userFloat["ppdlPV"] = ctauPV;
+			userFloat["ppdlErrPV"] = ctauErrPV;
+			userFloat["cosAlpha"] = cosAlpha;
+
+			pvtx3D.SetXYZ(thePrimaryV.position().x(),thePrimaryV.position().y(),thePrimaryV.position().z());
+			TVector3 vdiff3D = vtx3D - pvtx3D;
+			double cosAlpha3D = vdiff3D.Dot(pxyz)/(vdiff3D.Mag()*pxyz.Mag());
+			Measurement1D distXYZ = vdistXYZ.distance(Vertex(myVertex), thePrimaryV);
+			double ctauPV3D = distXYZ.value()*cosAlpha3D*3.096916/pxyz.Mag();
+			double ctauErrPV3D = sqrt(ROOT::Math::Similarity(vpxyz,vXYe))*3.096916/(pxyz.Mag2());
+
+			userFloat["ppdlPV3D"] = ctauPV3D;
+			userFloat["ppdlErrPV3D"] = ctauErrPV3D;
+			userFloat["cosAlpha3D"] = cosAlpha3D;
+
+
+			if (addCommonVertex_) {
+			  userVertex["commonVertex"] = Vertex(myVertex);
+			}
+    	} else {
+			userFloat["vNChi2"] = -1;
+			userFloat["vProb"] = -1;
+			userFloat["vertexWeight"] = -100;
+			userFloat["sumPTPV"] = -100;
+			userFloat["DCA"] = -10;
+			userFloat["ppdlPV"] = -100;
+			userFloat["ppdlErrPV"] = -100;
+			userFloat["cosAlpha"] = -10;
+			userFloat["ppdlBS"] = -100;
+			userFloat["ppdlErrBS"] = -100;
+			userFloat["ppdlOrigPV"] = -100;
+			userFloat["ppdlErrOrigPV"] = -100;
+			userFloat["ppdlPV3D"] = -100;
+			userFloat["ppdlErrPV3D"] = -100;
+			userFloat["cosAlpha3D"] = -10;
+			userFloat["ppdlBS3D"] = -100;
+			userFloat["ppdlErrBS3D"] = -100;
+			userFloat["ppdlOrigPV3D"] = -100;
+			userFloat["ppdlErrOrigPV3D"] = -100;
+			userInt["countTksOfPV"] = -1;
+    	}
+    	for (std::map<std::string, float>::iterator i = userFloat.begin(); i != userFloat.end(); i++) { myCand.addUserFloat(i->first , i->second); }
+    	goodMu1Mu2 = true;
+	}
+  }
 
  skipMuonLoop:
   //  std::sort(oniaOutput->begin(),oniaOutput->end(),pTComparator_);
