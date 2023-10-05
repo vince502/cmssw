@@ -1270,8 +1270,8 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     	// ---- build the dimuon secondary vertex ----
     	// t_tks.push_back(theTTBuilder->build(outDimu1));  // pass the reco::Track, not  the reco::TrackRef (which can be transient)
     	// t_tks.push_back(theTTBuilder->build(outDimu2)); // otherwise the vertex will have transient refs inside.
-		t_tks.push_back(outDimu1);
-		t_tks.push_back(outDimu2);
+		t_tks.push_back(outDimu1.bestTrack());
+		t_tks.push_back(outDimu2.bestTrack());
 
     	VtxForInvMass = vtxFitter.vertex( t_tks );
     	MassWErr = massCalculator.invariantMass( VtxForInvMass, muMasses );
@@ -1363,35 +1363,6 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 			userFloat["ppdlPV3D"] = ctauPV3D;
 			userFloat["ppdlErrPV3D"] = ctauErrPV3D;
 			userFloat["cosAlpha3D"] = cosAlpha3D;
-
-
-
-			// lifetime using PV
-			pvtx.SetXYZ(thePrimaryV.position().x(),thePrimaryV.position().y(),0);
-			TVector3 vdiff = vtx - pvtx;
-			double cosAlpha = vdiff.Dot(pperp)/(vdiff.Perp()*pperp.Perp());
-			Measurement1D distXY = vdistXY.distance(Vertex(myVertex), thePrimaryV);
-			double ctauPV = distXY.value()*cosAlpha*3.096916/pperp.Perp();
-			GlobalError v1e = (Vertex(myVertex)).error();
-			GlobalError v2e = thePrimaryV.error();
-			AlgebraicSymMatrix33 vXYe = v1e.matrix()+ v2e.matrix();
-			double ctauErrPV = sqrt(ROOT::Math::Similarity(vpperp,vXYe))*3.096916/(pperp.Perp2());
-
-			userFloat["ppdlPV"] = ctauPV;
-			userFloat["ppdlErrPV"] = ctauErrPV;
-			userFloat["cosAlpha"] = cosAlpha;
-
-			pvtx3D.SetXYZ(thePrimaryV.position().x(),thePrimaryV.position().y(),thePrimaryV.position().z());
-			TVector3 vdiff3D = vtx3D - pvtx3D;
-			double cosAlpha3D = vdiff3D.Dot(pxyz)/(vdiff3D.Mag()*pxyz.Mag());
-			Measurement1D distXYZ = vdistXYZ.distance(Vertex(myVertex), thePrimaryV);
-			double ctauPV3D = distXYZ.value()*cosAlpha3D*3.096916/pxyz.Mag();
-			double ctauErrPV3D = sqrt(ROOT::Math::Similarity(vpxyz,vXYe))*3.096916/(pxyz.Mag2());
-
-			userFloat["ppdlPV3D"] = ctauPV3D;
-			userFloat["ppdlErrPV3D"] = ctauErrPV3D;
-			userFloat["cosAlpha3D"] = cosAlpha3D;
-
 
 			if (addCommonVertex_) {
 			  userVertex["commonVertex"] = Vertex(myVertex);
