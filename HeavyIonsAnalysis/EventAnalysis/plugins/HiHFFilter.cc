@@ -7,7 +7,7 @@
 // user include files
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/global/EDFilter.h"
+#include "FWCore/Framework/interface/one/EDFilter.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -18,21 +18,19 @@
 
 #include "DataFormats/HeavyIonEvent/interface/HFFilterInfo.h"  //this line is needed to access the HF Filters
 
-class HiHFFilter : public edm::global::EDFilter<> {
+class HiHFFilter : public edm::one::EDFilter<> {
 public:
   explicit HiHFFilter(const edm::ParameterSet&);
-  // ~HiHFFilter() override;
-
-  bool filter(edm::StreamID, edm::Event&, const edm::EventSetup&) const override;
-
+  ~HiHFFilter() override;
 
 private:
+  bool filter(edm::Event&, const edm::EventSetup&) override;
 
   edm::EDGetTokenT<reco::HFFilterInfo> HFfilters_;
   bool applyfilter_;
   int threshold_;
   int minnumtowers_;
-  //int numMinHFTowers;
+  int numMinHFTowers;
 };
 
 using namespace edm;
@@ -45,12 +43,12 @@ HiHFFilter::HiHFFilter(const edm::ParameterSet& iConfig) {
   minnumtowers_ = iConfig.getParameter<int>("minnumtowers");
 }
 
-//HiHFFilter::~HiHFFilter() {}
+HiHFFilter::~HiHFFilter() {}
 
-bool HiHFFilter::filter(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
+bool HiHFFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   bool accepted = false;
 
-  int numMinHFTowers = 0;
+  numMinHFTowers = 0;
 
   edm::Handle<reco::HFFilterInfo> HFfilter;
   iEvent.getByToken(HFfilters_, HFfilter);
