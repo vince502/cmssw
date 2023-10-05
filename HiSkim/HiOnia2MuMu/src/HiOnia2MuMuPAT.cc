@@ -1268,8 +1268,10 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 		myCand.setCharge(outDimu1.charge() + outDimu2.charge());
 
     	// ---- build the dimuon secondary vertex ----
-    	t_tks.push_back(theTTBuilder->build(outDimu1));  // pass the reco::Track, not  the reco::TrackRef (which can be transient)
-    	t_tks.push_back(theTTBuilder->build(outDimu2)); // otherwise the vertex will have transient refs inside.
+    	// t_tks.push_back(theTTBuilder->build(outDimu1));  // pass the reco::Track, not  the reco::TrackRef (which can be transient)
+    	// t_tks.push_back(theTTBuilder->build(outDimu2)); // otherwise the vertex will have transient refs inside.
+		t_tks.push_back(outDimu1);
+		t_tks.push_back(outDimu2);
 
     	VtxForInvMass = vtxFitter.vertex( t_tks );
     	MassWErr = massCalculator.invariantMass( VtxForInvMass, muMasses );
