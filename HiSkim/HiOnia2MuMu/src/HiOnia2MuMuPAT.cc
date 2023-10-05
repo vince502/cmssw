@@ -1304,6 +1304,48 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 				}
 			}//if resolve ambiguity
 
+			theOriginalPV = thePrimaryV;
+
+			if(!doTrimuons_ && !DimuonTrk_){
+				double vertexWeight = -1., sumPTPV = -1.;
+				int countTksOfPV = -1;
+
+				EDConsumerBase::Labels thePVsLabel;
+				EDConsumerBase::labelsForToken(thePVsToken_, thePVsLabel);
+				if(thePVsLabel.module==(std::string)("offlinePrimaryVertices")) {
+					const reco::Muon *rmu1 = dynamic_cast<const reco::Muon *>(it.originalObject());
+					const reco::Muon *rmu2 = dynamic_cast<const reco::Muon *>(it2.originalObject());
+					try {
+						for(reco::Vertex::trackRef_iterator itVtx = theOriginalPV.tracks_begin(); itVtx != theOriginalPV.tracks_end(); itVtx++) if(itVtx->isNonnull()) {
+
+					const reco::Track& track = **itVtx;
+					if(!track.quality(reco::TrackBase::highPurity)) continue;
+					if(track.pt() < 0.5) continue; //reject all rejects from counting if less than 900 MeV
+
+					TransientTrack tt = theTTBuilder->build(track);
+					pair<bool,Measurement1D> tkPVdist = IPTools::absoluteImpactParameter3D(tt,theOriginalPV);
+
+					if (!tkPVdist.first) continue;
+					if (tkPVdist.second.significance()>3) continue;
+					if (track.ptError()/track.pt()>0.1) continue;
+
+					// do not count the two muons
+					if (rmu1 != 0 && rmu1->innerTrack().key() == itVtx->key()) continue;
+					if (rmu2 != 0 && rmu2->innerTrack().key() == itVtx->key()) continue;
+
+					vertexWeight += theOriginalPV.trackWeight(*itVtx);
+					if(theOriginalPV.trackWeight(*itVtx) > 0.5){
+						countTksOfPV++;
+						sumPTPV += track.pt();
+					}
+				}
+					} catch (std::exception & err) {std::cout << " Counting tracks from PV, fails! " << std::endl; return ; }
+				}
+				userInt["countTksOfPV"] = countTksOfPV;
+				userFloat["vertexWeight"] = (float) vertexWeight;
+				userFloat["sumPTPV"] = (float) sumPTPV;
+			}
+
 			vChi2 = myVertex.totalChiSquared();
 			vNDF  = myVertex.degreesOfFreedom();
 			float vProb(TMath::Prob(vChi2,(int)vNDF));
@@ -1317,11 +1359,11 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 			VertexDistance3D vdistXYZ;
 
 			vtx.SetXYZ(myVertex.position().x(),myVertex.position().y(),0);
-			TVector3 pperp(jpsi.px(), jpsi.py(), 0);
+			TVector3 pperp(diquarkonia.px(), diquarkonia.py(), 0);
 			AlgebraicVector3 vpperp(pperp.x(), pperp.y(), 0.);
 
 			vtx3D.SetXYZ(myVertex.position().x(),myVertex.position().y(),myVertex.position().z());
-			TVector3 pxyz(jpsi.px(), jpsi.py(), jpsi.pz());
+			TVector3 pxyz(diquarkonia.px(), diquarkonia.py(), diquarkonia.pz());
 			AlgebraicVector3 vpxyz(pxyz.x(), pxyz.y(), pxyz.z());
 
 			///DCA
@@ -1335,6 +1377,64 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 			}
 			userFloat["DCA"] = dca;
 			///end DCA
+
+			// lifetime using PV
+			pvtx.SetXYZ(thePrimaryV.position().x(),thePrimaryV.position().y(),0);
+			TVector3 vdiff = vtx - pvtx;
+			double cosAlpha = vdiff.Dot(pperp)/(vdiff.Perp()*pperp.Perp());
+			Measurement1D distXY = vdistXY.distance(Vertex(myVertex), thePrimaryV);
+			double ctauPV = distXY.value()*cosAlpha*3.096916/pperp.Perp();
+			GlobalError v1e = (Vertex(myVertex)).error();
+			GlobalError v2e = thePrimaryV.error();
+			AlgebraicSymMatrix33 vXYe = v1e.matrix()+ v2e.matrix();
+			double ctauErrPV = sqrt(ROOT::Math::Similarity(vpperp,vXYe))*3.096916/(pperp.Perp2());
+
+			userFloat["ppdlPV"] = ctauPV;
+			userFloat["ppdlErrPV"] = ctauErrPV;
+			userFloat["cosAlpha"] = cosAlpha;
+
+			pvtx3D.SetXYZ(thePrimaryV.position().x(),thePrimaryV.position().y(),thePrimaryV.position().z());
+			TVector3 vdiff3D = vtx3D - pvtx3D;
+			double cosAlpha3D = vdiff3D.Dot(pxyz)/(vdiff3D.Mag()*pxyz.Mag());
+			Measurement1D distXYZ = vdistXYZ.distance(Vertex(myVertex), thePrimaryV);
+			double ctauPV3D = distXYZ.value()*cosAlpha3D*3.096916/pxyz.Mag();
+			double ctauErrPV3D = sqrt(ROOT::Math::Similarity(vpxyz,vXYe))*3.096916/(pxyz.Mag2());
+
+			userFloat["ppdlPV3D"] = ctauPV3D;
+			userFloat["ppdlErrPV3D"] = ctauErrPV3D;
+			userFloat["cosAlpha3D"] = cosAlpha3D;
+
+			if (addMuonlessPrimaryVertex_ && !doTrimuons_ && !DimuonTrk_) {
+				// lifetime using Original PV
+				pvtx.SetXYZ(theOriginalPV.position().x(),theOriginalPV.position().y(),0);
+				vdiff = vtx - pvtx;
+				double cosAlphaOrigPV = vdiff.Dot(pperp)/(vdiff.Perp()*pperp.Perp());
+				distXY = vdistXY.distance(Vertex(myVertex), theOriginalPV);
+				double ctauOrigPV = distXY.value()*cosAlphaOrigPV*3.096916/pperp.Perp();
+				GlobalError v1eOrigPV = (Vertex(myVertex)).error();
+				GlobalError v2eOrigPV = theOriginalPV.error();
+				AlgebraicSymMatrix33 vXYeOrigPV = v1eOrigPV.matrix()+ v2eOrigPV.matrix();
+				double ctauErrOrigPV = sqrt(ROOT::Math::Similarity(vpperp,vXYeOrigPV))*3.096916/(pperp.Perp2());
+
+				userFloat["ppdlOrigPV"] = ctauOrigPV;
+				userFloat["ppdlErrOrigPV"] = ctauErrOrigPV;
+
+				pvtx3D.SetXYZ(theOriginalPV.position().x(), theOriginalPV.position().y(), theOriginalPV.position().z());
+				vdiff3D = vtx3D - pvtx3D;
+				double cosAlphaOrigPV3D = vdiff3D.Dot(pxyz)/(vdiff3D.Mag()*pxyz.Mag());
+				distXYZ = vdistXYZ.distance(Vertex(myVertex), theOriginalPV);
+				double ctauOrigPV3D = distXYZ.value()*cosAlphaOrigPV3D*3.096916/pxyz.Mag();
+				double ctauErrOrigPV3D = sqrt(ROOT::Math::Similarity(vpxyz,vXYeOrigPV))*3.096916/(pxyz.Mag2());
+							
+				userFloat["ppdlOrigPV3D"] = ctauOrigPV3D;
+				userFloat["ppdlErrOrigPV3D"] = ctauErrOrigPV3D;
+			}
+			else {
+				userFloat["ppdlOrigPV"] = ctauPV;
+				userFloat["ppdlErrOrigPV"] = ctauErrPV;
+				userFloat["ppdlOrigPV3D"] = ctauPV3D;
+				userFloat["ppdlErrOrigPV3D"] = ctauErrPV3D;
+			}
 
 
 			// lifetime using PV
