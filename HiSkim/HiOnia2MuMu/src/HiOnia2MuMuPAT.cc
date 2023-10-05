@@ -24,6 +24,7 @@
 #include "TMath.h"
 #include "Math/VectorUtil.h"
 #include "TVector3.h"
+#include "ROOT/TSeq.hxx"
 
 #include "TrackingTools/PatternTools/interface/TwoTrackMinimumDistance.h"
 #include "TrackingTools/IPTools/interface/IPTools.h"
@@ -1229,10 +1230,10 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
   }//it muon
 
   unsigned dimuSize = oniaOutput->size();
-  for(auto idxDimu : ROOT::TSeqI(dimuSize)){
+  for(auto idxDimu : ROOT::TSeqL(dimuSize)){
 	const pat::CompositeCandidate& outDimu1 = (*oniaOutput)[idxDimu];
 	const TransientVertex& dimuVertex1 = (*dimuonVertices)[idxDimu];
-	for( auto idxDimu2 : ROOT::TSeq( idxDimu+1, dimuSize ) ){
+	for( auto idxDimu2 : ROOT::TSeqL( idxDimu+1, dimuSize ) ){
 		const pat::CompositeCandidate& outDimu2 = (*oniaOutput)[idxDimu2];
 		const TransientVertex& dimuVertex2 = (*dimuonVertices)[idxDimu2];
   		//For kinematic constrained fit
@@ -1259,13 +1260,12 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     	pat::CompositeCandidate myCand;
     	pat::CompositeCandidate myCandTmp;
 		
-		pat::CompostieCandidate didimu;
-		didimu.addDaughter(outDimu1,"dimuon1");
-		didimu.addDaughter(outDimu2,"dimuon2");
+		myCand.addDaughter(outDimu1,"dimuon1");
+		myCand.addDaughter(outDimu2,"dimuon2");
 
 		LorentzVector diquarkonia = outDimu1.p4() + outDimu2.p4();
-		didimu.setP4(diquarkonia);
-		didimu.setCharge(outDimu1.charge() + outDimu2.charge());
+		myCand.setP4(diquarkonia);
+		myCand.setCharge(outDimu1.charge() + outDimu2.charge());
 
     	// ---- build the dimuon secondary vertex ----
     	t_tks.push_back(theTTBuilder->build(outDimu1));  // pass the reco::Track, not  the reco::TrackRef (which can be transient)
