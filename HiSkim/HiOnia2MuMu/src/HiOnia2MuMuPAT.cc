@@ -52,7 +52,7 @@ HiOnia2MuMuPAT::HiOnia2MuMuPAT(const edm::ParameterSet& iConfig):
   onlySoftMuons_(iConfig.getParameter<bool>("onlySoftMuons")),
   onlySingleMuons_(iConfig.getParameter<bool>("onlySingleMuons")),
   doTrimuons_(iConfig.getParameter<bool>("doTrimuons")),
-  doTrimuons_(iConfig.getParameter<bool>("doDiquarkonia")),
+  doDiquarkonia_(iConfig.getParameter<bool>("doDiquarkonia")),
   DimuonTrk_(iConfig.getParameter<bool>("DimuonTrk")),
   flipJpsiDirection_(iConfig.getParameter<int>("flipJpsiDirection")),
   Converter_(converter::TrackToCandidate(iConfig, consumesCollector())),
@@ -1306,46 +1306,6 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 			theOriginalPV = thePrimaryV;
 
-			if(!doTrimuons_ && !DimuonTrk_){
-				double vertexWeight = -1., sumPTPV = -1.;
-				int countTksOfPV = -1;
-
-				EDConsumerBase::Labels thePVsLabel;
-				EDConsumerBase::labelsForToken(thePVsToken_, thePVsLabel);
-				if(thePVsLabel.module==(std::string)("offlinePrimaryVertices")) {
-					const reco::Muon *rmu1 = dynamic_cast<const reco::Muon *>(it.originalObject());
-					const reco::Muon *rmu2 = dynamic_cast<const reco::Muon *>(it2.originalObject());
-					try {
-						for(reco::Vertex::trackRef_iterator itVtx = theOriginalPV.tracks_begin(); itVtx != theOriginalPV.tracks_end(); itVtx++) if(itVtx->isNonnull()) {
-
-					const reco::Track& track = **itVtx;
-					if(!track.quality(reco::TrackBase::highPurity)) continue;
-					if(track.pt() < 0.5) continue; //reject all rejects from counting if less than 900 MeV
-
-					TransientTrack tt = theTTBuilder->build(track);
-					pair<bool,Measurement1D> tkPVdist = IPTools::absoluteImpactParameter3D(tt,theOriginalPV);
-
-					if (!tkPVdist.first) continue;
-					if (tkPVdist.second.significance()>3) continue;
-					if (track.ptError()/track.pt()>0.1) continue;
-
-					// do not count the two muons
-					if (rmu1 != 0 && rmu1->innerTrack().key() == itVtx->key()) continue;
-					if (rmu2 != 0 && rmu2->innerTrack().key() == itVtx->key()) continue;
-
-					vertexWeight += theOriginalPV.trackWeight(*itVtx);
-					if(theOriginalPV.trackWeight(*itVtx) > 0.5){
-						countTksOfPV++;
-						sumPTPV += track.pt();
-					}
-				}
-					} catch (std::exception & err) {std::cout << " Counting tracks from PV, fails! " << std::endl; return ; }
-				}
-				userInt["countTksOfPV"] = countTksOfPV;
-				userFloat["vertexWeight"] = (float) vertexWeight;
-				userFloat["sumPTPV"] = (float) sumPTPV;
-			}
-
 			vChi2 = myVertex.totalChiSquared();
 			vNDF  = myVertex.degreesOfFreedom();
 			float vProb(TMath::Prob(vChi2,(int)vNDF));
@@ -1404,37 +1364,6 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 			userFloat["ppdlErrPV3D"] = ctauErrPV3D;
 			userFloat["cosAlpha3D"] = cosAlpha3D;
 
-			if (addMuonlessPrimaryVertex_ && !doTrimuons_ && !DimuonTrk_) {
-				// lifetime using Original PV
-				pvtx.SetXYZ(theOriginalPV.position().x(),theOriginalPV.position().y(),0);
-				vdiff = vtx - pvtx;
-				double cosAlphaOrigPV = vdiff.Dot(pperp)/(vdiff.Perp()*pperp.Perp());
-				distXY = vdistXY.distance(Vertex(myVertex), theOriginalPV);
-				double ctauOrigPV = distXY.value()*cosAlphaOrigPV*3.096916/pperp.Perp();
-				GlobalError v1eOrigPV = (Vertex(myVertex)).error();
-				GlobalError v2eOrigPV = theOriginalPV.error();
-				AlgebraicSymMatrix33 vXYeOrigPV = v1eOrigPV.matrix()+ v2eOrigPV.matrix();
-				double ctauErrOrigPV = sqrt(ROOT::Math::Similarity(vpperp,vXYeOrigPV))*3.096916/(pperp.Perp2());
-
-				userFloat["ppdlOrigPV"] = ctauOrigPV;
-				userFloat["ppdlErrOrigPV"] = ctauErrOrigPV;
-
-				pvtx3D.SetXYZ(theOriginalPV.position().x(), theOriginalPV.position().y(), theOriginalPV.position().z());
-				vdiff3D = vtx3D - pvtx3D;
-				double cosAlphaOrigPV3D = vdiff3D.Dot(pxyz)/(vdiff3D.Mag()*pxyz.Mag());
-				distXYZ = vdistXYZ.distance(Vertex(myVertex), theOriginalPV);
-				double ctauOrigPV3D = distXYZ.value()*cosAlphaOrigPV3D*3.096916/pxyz.Mag();
-				double ctauErrOrigPV3D = sqrt(ROOT::Math::Similarity(vpxyz,vXYeOrigPV))*3.096916/(pxyz.Mag2());
-							
-				userFloat["ppdlOrigPV3D"] = ctauOrigPV3D;
-				userFloat["ppdlErrOrigPV3D"] = ctauErrOrigPV3D;
-			}
-			else {
-				userFloat["ppdlOrigPV"] = ctauPV;
-				userFloat["ppdlErrOrigPV"] = ctauErrPV;
-				userFloat["ppdlOrigPV3D"] = ctauPV3D;
-				userFloat["ppdlErrOrigPV3D"] = ctauErrPV3D;
-			}
 
 
 			// lifetime using PV
@@ -1491,8 +1420,8 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     	}
     	for (std::map<std::string, float>::iterator i = userFloat.begin(); i != userFloat.end(); i++) { myCand.addUserFloat(i->first , i->second); }
     	goodMu1Mu2 = true;
-	}
-  }
+		}
+  	}
 
  skipMuonLoop:
   //  std::sort(oniaOutput->begin(),oniaOutput->end(),pTComparator_);
