@@ -1236,7 +1236,7 @@ skipMuonLoop:
 	const pat::CompositeCandidate& outDimu1 = (*oniaOutput)[idxDimu];
 	const TransientVertex& dimuVertex1 = (*dimuonVertices)[idxDimu];
 	for( auto idxDimu2 : ROOT::TSeqL( idxDimu+1, dimuSize ) ){
-		bool goodMu1Mu2=false;
+		//bool goodMu1Mu2=false;
 		const pat::CompositeCandidate& outDimu2 = (*oniaOutput)[idxDimu2];
 		const TransientVertex& dimuVertex2 = (*dimuonVertices)[idxDimu2];
   		//For kinematic constrained fit
@@ -1393,7 +1393,7 @@ skipMuonLoop:
 			userInt["countTksOfPV"] = -1;
     	}
     	for (std::map<std::string, float>::iterator i = userFloat.begin(); i != userFloat.end(); i++) { myCand.addUserFloat(i->first , i->second); }
-    	goodMu1Mu2 = true;
+//    	goodMu1Mu2 = true;
 		}
   	}
 
