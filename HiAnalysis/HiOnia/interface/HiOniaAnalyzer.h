@@ -75,6 +75,7 @@ private:
   int IndexOfThisMuon(TLorentzVector* v1, bool isGen=false);
   int IndexOfThisTrack(TLorentzVector* v1, bool isGen=false);
   int IndexOfThisJpsi(int mu1_idx, int mu2_idx, int flipJpsi=0);
+  int IndexOfThisDiOnia(int mu1_idx, int mu2_idx);
   void fillGenInfo();
   void fillMuMatchingInfo();
   void fillQQMatchingInfo();
@@ -994,7 +995,6 @@ HiOniaAnalyzer::InitTree()
     myTree->Branch("Reco_QQQQ_VtxProb", Reco_QQQQ_VtxProb,   "Reco_QQQQ_VtxProb[Reco_QQQQ_size]/F");
     myTree->Branch("Reco_QQQQ_dca", Reco_QQQQ_dca,   "Reco_QQQQ_dca[Reco_QQQQ_size]/F");
     myTree->Branch("Reco_QQQQ_MassErr", Reco_QQQQ_MassErr,   "Reco_QQQQ_MassErr[Reco_QQQQ_size]/F");
-    myTree->Branch("Reco_QQQQ_vtx", "TClonesArray", &Reco_QQQQ_vtx, 32000, 0);
 
     if ((!_theMinimumFlag && _muonLessPrimaryVertex) || (_flipJpsiDirection>0)) {
       myTree->Branch("Reco_QQ_mupl_dxy_muonlessVtx",Reco_QQ_mupl_dxy, "Reco_QQ_mupl_dxy_muonlessVtx[Reco_QQ_size]/F");
