@@ -1234,6 +1234,7 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	const pat::CompositeCandidate& outDimu1 = (*oniaOutput)[idxDimu];
 	const TransientVertex& dimuVertex1 = (*dimuonVertices)[idxDimu];
 	for( auto idxDimu2 : ROOT::TSeqL( idxDimu+1, dimuSize ) ){
+		bool goodMu1Mu2=false
 		const pat::CompositeCandidate& outDimu2 = (*oniaOutput)[idxDimu2];
 		const TransientVertex& dimuVertex2 = (*dimuonVertices)[idxDimu2];
   		//For kinematic constrained fit
@@ -1394,7 +1395,7 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 		}
   	}
 
- skipMuonLoop:
+skipMuonLoop:
   //  std::sort(oniaOutput->begin(),oniaOutput->end(),pTComparator_);
   std::sort(oniaOutput->begin(),oniaOutput->end(),vPComparator_);
   iEvent.put(std::move(oniaOutput),"");
