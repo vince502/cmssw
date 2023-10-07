@@ -654,11 +654,11 @@ HiOniaAnalyzer::fillTreeDiOnia(int count) {
     return;
   }
 
-  const pat::CompositeCandidate* aJpsiCand = _patDiOniaToken.at(count);
+  const pat::CompositeCandidate* aJpsiCand = collDiOnia.at(count);
 
   if (aJpsiCand!=NULL){
-    const pat::CompositeCandidate* muon1 = dynamic_cast<const pat::Muon*>(aJpsiCand->daughter("muon1"));
-    const pat::CompositeCandidate* muon2 = dynamic_cast<const pat::Muon*>(aJpsiCand->daughter("muon2"));
+    const pat::CompositeCandidate* muon1 = dynamic_cast<const pat::CompositeCandidate*>(aJpsiCand->daughter("muon1"));
+    const pat::CompositeCandidate* muon2 = dynamic_cast<const pat::CompositeCandidate*>(aJpsiCand->daughter("muon2"));
 
     ULong64_t trigBits=0;
     for (unsigned int iTr=1; iTr<NTRIGGERS; ++iTr) {
@@ -1141,6 +1141,7 @@ HiOniaAnalyzer::IndexOfThisMuon(TLorentzVector* v1, bool isGen){
   else return mapMuIdx.at(muPt);
 }
 
+
 int
 HiOniaAnalyzer::IndexOfThisTrack(TLorentzVector* v1, bool isGen){
   const auto& mapTrkIdx =  (isGen ?  mapTrkMomToIndex_ : mapTrkMomToIndex_);
@@ -1161,6 +1162,20 @@ HiOniaAnalyzer::IndexOfThisJpsi(int mu1_idx, int mu2_idx, int flipJpsi){
       GoodIndex = iJpsi;
       break;
     }
+  }
+  return GoodIndex;
+}
+int
+HiOniaAnalyzer::IndexOfThisJpsi(TLorentzVector* v1){
+  int GoodIndex = -1;
+  double maxCompat = -9999.;
+  auto compat = [](double a, double b){
+    return 1-std::abs(a-b);
+  };
+  for(int iJpsi=0; iJpsi<Reco_QQ_size; iJpsi++){
+    auto oldCompat=  maxCompat;
+    maxCompat = std::max(compat(Reco_QQ_4mom[iJpsi]->Pt(), v1->Pt()), maxCompat);
+    if( oldCompat != maxCompat) GoodIndex = iJpsi;
   }
   return GoodIndex;
 }
