@@ -653,7 +653,7 @@ HiOniaAnalyzer::fillTreeDiOnia(int count) {
     return;
   }
 
-  const pat::CompositeCandidate* aJpsiCand = _thePassedCands.at(count);
+  const pat::CompositeCandidate* aJpsiCand = _patDiOniaToken.at(count);
 
   if (aJpsiCand!=NULL){
     const pat::CompositeCandidate* muon1 = dynamic_cast<const pat::Muon*>(aJpsiCand->daughter("muon1"));
@@ -708,8 +708,8 @@ HiOniaAnalyzer::fillTreeDiOnia(int count) {
 //      if((muon1->innerTrack()).isNull() || (muon2->innerTrack()).isNull()){
 //	std::cout<<"ERROR: 'iTrack_mupl' or 'iTrack_mumi' pointer in fillTreeJpsi is NULL ! Return now"<<std::endl; return;}
 //
-	Reco_QQ_mupl_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon1); //needs the non-flipped muon momentum
-	Reco_QQ_mumi_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon2);
+	Reco_QQQQ_mupl_idx[Reco_QQQQ_size] = IndexOfThisJpsi(&vMuon1); //needs the non-flipped muon momentum
+	Reco_QQQQ_mumi_idx[Reco_QQQQ_size] = IndexOfThisJpsi(&vMuon2);
 
 	  iTrack_mupl = mu1Trk;
 	  iTrack_mumi = mu2Trk;
@@ -1026,7 +1026,6 @@ HiOniaAnalyzer::InitEvent()
   nEP = 0;
 
   _thePassedCats.clear();      _thePassedCands.clear();
-  _thePassed2Cats.clear();      _thePassed2Cands.clear();
 
   Reco_QQ_size = 0;
   Reco_mu_size = 0;
