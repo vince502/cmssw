@@ -75,7 +75,7 @@ private:
   int IndexOfThisMuon(TLorentzVector* v1, bool isGen=false);
   int IndexOfThisTrack(TLorentzVector* v1, bool isGen=false);
   int IndexOfThisJpsi(int mu1_idx, int mu2_idx, int flipJpsi=0);
-  int IndexOfThisJpsi(TLorentzVecotr* v1);
+  int IndexOfThisJpsi(TLorentzVector* v1);
   int IndexOfThisDiOnia(int mu1_idx, int mu2_idx);
   void fillGenInfo();
   void fillMuMatchingInfo();
