@@ -1229,7 +1229,9 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     }//it2 muon
   }//it muon
 
+skipMuonLoop:
   unsigned dimuSize = oniaOutput->size();
+  if( dimuSize > 1)
   for(auto idxDimu : ROOT::TSeqL(dimuSize)){
 	const pat::CompositeCandidate& outDimu1 = (*oniaOutput)[idxDimu];
 	const TransientVertex& dimuVertex1 = (*dimuonVertices)[idxDimu];
@@ -1395,7 +1397,6 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 		}
   	}
 
-skipMuonLoop:
   //  std::sort(oniaOutput->begin(),oniaOutput->end(),pTComparator_);
   std::sort(oniaOutput->begin(),oniaOutput->end(),vPComparator_);
   iEvent.put(std::move(oniaOutput),"");
