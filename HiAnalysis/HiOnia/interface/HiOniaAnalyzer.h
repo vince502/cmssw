@@ -115,6 +115,7 @@ private:
 
   void fillTreeMuon(const pat::Muon* muon, int iType, ULong64_t trigBits);
   void fillTreeJpsi(int count);
+  void fillTreeDiOnia(int count);
   void fillTreeBc(int count);
   void fillTreeDimuTrk(int count);
 
@@ -979,7 +980,6 @@ HiOniaAnalyzer::InitTree()
     myTree->Branch("Reco_QQQQ_VtxProb", Reco_QQQQ_VtxProb,   "Reco_QQQQ_VtxProb[Reco_QQQQ_size]/F");
     myTree->Branch("Reco_QQQQ_dca", Reco_QQQQ_dca,   "Reco_QQQQ_dca[Reco_QQQQ_size]/F");
     myTree->Branch("Reco_QQQQ_MassErr", Reco_QQQQ_MassErr,   "Reco_QQQQ_MassErr[Reco_QQQQ_size]/F");
-    myTree->Branch("Reco_QQQQ_vtx", "TClonesArray", &Reco_QQQQ_vtx, 32000, 0);
 
     myTree->Branch("Reco_QQQQ_mupl_idx",      Reco_QQQQ_mupl_idx,    "Reco_QQQQ_mupl_idx[Reco_QQQQ_size]/S");
     myTree->Branch("Reco_QQQQ_mumi_idx",      Reco_QQQQ_mumi_idx,    "Reco_QQQQ_mumi_idx[Reco_QQQQ_size]/S");
