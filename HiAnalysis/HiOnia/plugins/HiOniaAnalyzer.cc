@@ -646,6 +646,7 @@ HiOniaAnalyzer::fillTreeJpsi(int count) {
   return;
 }
 
+void
 HiOniaAnalyzer::fillTreeDiOnia(int count) {
   if (Reco_QQQQ_size >= Max_QQQQ_size) {
     std::cout << "Too many dimuons: " << Reco_QQQQ_size << std::endl;
