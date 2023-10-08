@@ -17,8 +17,10 @@ HiOniaAnalyzer::fillRecoHistos() {
 	const pat::CompositeCandidate* aJpsiCand = _thePassedCands.at(count); 
       
 	this->checkTriggers(aJpsiCand);
-	if (_fillTree)
+	if (_fillTree){
 	  this->fillTreeJpsi(count);
+	  this->fillTreeDiOnia(count);
+    }
       
 	for (unsigned int iTr=0; iTr<NTRIGGERS; ++iTr) {
 	  if (isTriggerMatched[iTr]) {
