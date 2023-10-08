@@ -654,7 +654,7 @@ HiOniaAnalyzer::fillTreeDiOnia(int count) {
     return;
   }
 
-  const pat::CompositeCandidate* aJpsiCand = *collDiOnia[count];
+  const pat::CompositeCandidate* aJpsiCand = ((std::vector<pat::CompositeCandidate>&)collDiOnia)[count];
 
   if (aJpsiCand!=NULL){
     const pat::CompositeCandidate* muon1 = dynamic_cast<const pat::CompositeCandidate*>(aJpsiCand->daughter("muon1"));
