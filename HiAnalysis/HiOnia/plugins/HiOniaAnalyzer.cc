@@ -15,6 +15,191 @@
 #include "HiAnalysis/HiOnia/interface/HiOniaAnalyzer.h"
 
 
+HiOniaAnalyzer::HiOniaAnalyzer(const edm::ParameterSet& iConfig):
+  _patMuonToken(consumes<pat::MuonCollection>(iConfig.getParameter<edm::InputTag>("srcMuon"))),
+  _patMuonNoTrigToken(consumes<pat::MuonCollection>(iConfig.getParameter<edm::InputTag>("srcMuonNoTrig"))),
+  _patJpsiToken(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter<edm::InputTag>("srcDimuon"))),
+  _patDiOniaToken(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter<edm::InputTag>("srcDiquarkonia"))),
+  _patTrimuonToken(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter<edm::InputTag>("srcTrimuon"))), //the names of userData are the same as for dimuons, but with 'trimuon' product instance name. Ignored if the collection does not exist
+  _patDimuTrkToken(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter<edm::InputTag>("srcDimuTrk"))), //the names of userData are the same as for dimuons, but with 'dimutrk' product instance name. Ignored if the collection does not exist
+  _recoTracksToken(consumes<reco::TrackCollection>(iConfig.getParameter<edm::InputTag>("srcTracks"))),
+  _genParticleToken(consumes<reco::GenParticleCollection>(iConfig.getParameter<edm::InputTag>("genParticles"))),
+  _genInfoToken(consumes<GenEventInfoProduct>(edm::InputTag("generator"))),
+  _thePVsToken(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("primaryVertexTag"))),
+  _SVToken(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("srcSV"))),//consumes<edm::View<VTX>>
+  _tagTriggerResultsToken(consumes<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerResultsLabel"))),
+  _centralityTagToken(consumes<reco::Centrality>(iConfig.getParameter<edm::InputTag> ("CentralitySrc"))),
+  _centralityBinTagToken(consumes<int>(iConfig.getParameter<edm::InputTag> ("CentralityBinSrc"))),
+  _evtPlaneTagToken(consumes<reco::EvtPlaneCollection>(iConfig.getParameter<edm::InputTag> ("EvtPlane"))),
+  _histfilename(iConfig.getParameter<std::string>("histFileName")),             
+  _datasetname(iConfig.getParameter<std::string>("dataSetName")),         
+  _mom4format(iConfig.getParameter<std::string>("mom4format")),
+  _muonSel(iConfig.getParameter<std::string>("muonSel")),
+  _centralityranges(iConfig.getParameter< std::vector<double> >("centralityRanges")),           
+  _ptbinranges(iConfig.getParameter< std::vector<double> >("pTBinRanges")),     
+  _etabinranges(iConfig.getParameter< std::vector<double> >("etaBinRanges")),   
+  _dblTriggerPathNames(iConfig.getParameter< std::vector<string> >("dblTriggerPathNames")),
+  _sglTriggerPathNames(iConfig.getParameter< std::vector<string> >("sglTriggerPathNames")),
+  _onlythebest(iConfig.getParameter<bool>("onlyTheBest")),              
+  _applycuts(iConfig.getParameter<bool>("applyCuts")),
+  _SofterSgMuAcceptance(iConfig.getParameter<bool>("SofterSgMuAcceptance")),
+  _SumETvariables(iConfig.getParameter<bool>("SumETvariables")),
+  _selTightGlobalMuon(iConfig.getParameter<bool>("selTightGlobalMuon")),                      
+  _storeefficiency(iConfig.getParameter<bool>("storeEfficiency")),      
+  _muonLessPrimaryVertex(iConfig.getParameter<bool>("muonLessPV")),
+  _useSVfinder(iConfig.getParameter<bool>("useSVfinder")),
+  _useBS(iConfig.getParameter<bool>("useBeamSpot")),
+  _useRapidity(iConfig.getParameter<bool>("useRapidity")),
+  _removeSignal(iConfig.getUntrackedParameter<bool>("removeSignalEvents",false)),
+  _removeMuons(iConfig.getUntrackedParameter<bool>("removeTrueMuons",false)),
+  _storeSs(iConfig.getParameter<bool>("storeSameSign")),
+  _AtLeastOneCand(iConfig.getParameter<bool>("AtLeastOneCand")),
+  _combineCategories(iConfig.getParameter<bool>("combineCategories")),
+  _fillRooDataSet(iConfig.getParameter<bool>("fillRooDataSet")),  
+  _fillTree(iConfig.getParameter<bool>("fillTree")),  
+  _fillHistos(iConfig.getParameter<bool>("fillHistos")),
+  _theMinimumFlag(iConfig.getParameter<bool>("minimumFlag")),  
+  _fillSingleMuons(iConfig.getParameter<bool>("fillSingleMuons")),
+  _onlySingleMuons(iConfig.getParameter<bool>("onlySingleMuons")),
+  _fillRecoTracks(iConfig.getParameter<bool>("fillRecoTracks")),
+  _isHI(iConfig.getUntrackedParameter<bool>("isHI",false) ),
+  _isPA(iConfig.getUntrackedParameter<bool>("isPA",true) ),
+  _isMC(iConfig.getUntrackedParameter<bool>("isMC",false) ),
+  _isPromptMC(iConfig.getUntrackedParameter<bool>("isPromptMC",true) ),
+  _useEvtPlane(iConfig.getUntrackedParameter<bool>("useEvtPlane",false) ),
+  _useGeTracks(iConfig.getUntrackedParameter<bool>("useGeTracks",false) ),
+  _doTrimuons(iConfig.getParameter<bool>("doTrimuons")),
+  _doDimuTrk(iConfig.getParameter<bool>("DimuonTrk")),
+  _flipJpsiDirection(iConfig.getParameter<int>("flipJpsiDirection")),
+  _genealogyInfo(iConfig.getParameter<bool>("genealogyInfo")),
+  _miniAODcut(iConfig.getParameter<bool>("miniAODcut")),
+  _oniaPDG(iConfig.getParameter<int>("oniaPDG")),
+  _BcPDG(iConfig.getParameter<int>("BcPDG")),
+  _OneMatchedHLTMu(iConfig.getParameter<int>("OneMatchedHLTMu")),
+  _checkTrigNames(iConfig.getParameter<bool>("checkTrigNames")),
+  hltPrescaleProvider(iConfig, consumesCollector(), *this),
+  _iConfig(iConfig)
+{
+  usesResource(TFileService::kSharedResource);
+
+  if(_doTrimuons && _doDimuTrk){
+    cout<<"FATAL ERROR: _doTrimuons and _doDimuTrk cannot be both true! Code not designed to do both at a time; Return now."<<endl;
+    return;}
+  if(_doDimuTrk){
+    if(!_useGeTracks){
+      cout<<"Have to use generalTracks if doDimuonTrk==true. _useGeTracks = true is forced."<<endl; _useGeTracks=true;}
+    if(!_fillRecoTracks){
+      cout<<"Have to use generalTracks if doDimuonTrk==true. _fillRecoTracks = true is forced."<<endl; _fillRecoTracks=true;}
+  }
+
+  //now do whatever initialization is needed
+  nEvents = 0;
+  passedCandidates = 0;
+
+  theRegions.push_back("All");
+  theRegions.push_back("Barrel");
+  theRegions.push_back("EndCap");
+
+  std::stringstream centLabel;
+  for (unsigned int iCent=0; iCent<_centralityranges.size(); ++iCent) {
+    if (iCent==0)
+      centLabel << "00" << _centralityranges.at(iCent);
+    else
+      centLabel << _centralityranges.at(iCent-1) << _centralityranges.at(iCent);
+
+    theCentralities.push_back(centLabel.str());
+    centLabel.str("");
+  }
+  theCentralities.push_back("MinBias");
+
+  theSign.push_back("pm");
+  if (_storeSs) {
+    theSign.push_back("pp");
+    theSign.push_back("mm");
+  }
+
+  NTRIGGERS_DBL = _dblTriggerPathNames.size();
+  NTRIGGERS = NTRIGGERS_DBL + _sglTriggerPathNames.size() + 1; // + 1 for "NoTrigger"
+  std::cout << "NTRIGGERS_DBL = " << NTRIGGERS_DBL << "\t NTRIGGERS_SGL = " << _sglTriggerPathNames.size() << "\t NTRIGGERS = " << NTRIGGERS << std::endl;
+  nTrig = NTRIGGERS - 1;
+
+  isTriggerMatched[0]=true; // first entry 'hardcoded' true to accept "all" events
+  theTriggerNames.push_back("NoTrigger");
+
+  for (unsigned int iTr = 1; iTr<NTRIGGERS; ++iTr) {
+    isTriggerMatched[iTr] = false;
+
+    if (iTr<=NTRIGGERS_DBL) {
+      theTriggerNames.push_back(_dblTriggerPathNames.at(iTr-1));
+    }
+    else {
+      theTriggerNames.push_back(_sglTriggerPathNames.at(iTr-NTRIGGERS_DBL-1));
+    }
+    std::cout<<" Trigger "<<iTr<<"\t"<<theTriggerNames[iTr]<<std::endl;
+  }
+
+  if(_OneMatchedHLTMu>=(int)NTRIGGERS){
+    std::cout<<"WARNING: the _OneMatchedHLTMu parameter is asking for a wrong trigger number. No matching will be done."<<std::endl;
+    _OneMatchedHLTMu=-1;}
+  if(_OneMatchedHLTMu>-1)
+    std::cout<<" Will keep only dimuons (trimuons) that have one (two) daughters matched to "<<theTriggerNames[_OneMatchedHLTMu]<<" filter."<<std::endl;
+
+  etaMax = 2.5;
+
+  JpsiMassMin = 2.6;
+  JpsiMassMax = 3.5;
+
+  JpsiPtMin = _ptbinranges[0];
+  //std::cout << "Pt min = " << JpsiPtMin << std::endl;
+  JpsiPtMax = _ptbinranges[_ptbinranges.size()-1];
+  //std::cout << "Pt max = " << JpsiPtMax << std::endl;
+
+     
+  JpsiRapMin = _etabinranges[0];
+  //std::cout << "Rap min = " << JpsiRapMin << std::endl;
+  JpsiRapMax = _etabinranges[_etabinranges.size()-1];
+  //std::cout << "Rap max = " << JpsiRapMax << std::endl;
+  
+
+  for(std::vector<std::string>::iterator it = theTriggerNames.begin(); it != theTriggerNames.end(); ++it){
+      mapTriggerNameToIntFired_[*it] = -9999;
+      mapTriggerNameToPrescaleFac_[*it] = -1;
+  }
+};
+
+
+
+HiOniaAnalyzer::~HiOniaAnalyzer()
+{
+ 
+  // do anything here that needs to be done at destruction time
+  // (e.g. close files, deallocate resources etc.)
+  Reco_mu_4mom->Delete();
+  Reco_mu_L1_4mom->Delete();
+  Reco_QQ_4mom->Delete();
+  Reco_QQ_mumi_4mom->Delete();
+  Reco_QQ_mupl_4mom->Delete();
+  Reco_QQ_vtx->Delete();
+  if (_useGeTracks && _fillRecoTracks) {
+    Reco_trk_4mom->Delete();
+    Reco_trk_vtx->Delete();
+  }
+  if(_doTrimuons || _doDimuTrk){
+    Reco_3mu_4mom->Delete();
+    Reco_3mu_vtx->Delete();
+    if(_isMC){
+      Gen_Bc_4mom->Delete();
+      Gen_Bc_nuW_4mom->Delete();
+      Gen_3mu_4mom->Delete();
+    }
+  }
+  if(_isMC){
+    Gen_mu_4mom->Delete();
+    Gen_QQ_4mom->Delete();
+  }
+};
+
+
 //
 // member functions
 //
