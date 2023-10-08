@@ -1174,7 +1174,7 @@ HiOniaAnalyzer::IndexOfThisJpsi(TLorentzVector* v1){
   };
   for(int iJpsi=0; iJpsi<Reco_QQ_size; iJpsi++){
     auto oldCompat=  maxCompat;
-    maxCompat = std::max(compat(Reco_QQ_4mom->At(iJpsi)->Pt(), v1->Pt()), maxCompat);
+    maxCompat = std::max(compat(((TLorentzVector*) Reco_QQ_4mom->At(iJpsi))->Pt(), v1->Pt()), maxCompat);
     if( oldCompat != maxCompat) GoodIndex = iJpsi;
   }
   return GoodIndex;
