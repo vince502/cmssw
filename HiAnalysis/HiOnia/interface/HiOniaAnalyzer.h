@@ -253,7 +253,7 @@ private:
   std::vector<float> Gen_QQ_4mom_m;
 
   static const int Max_QQ_size = 10000;
-  static const int Max_QQQQ_size = 100000;
+  static const int Max_QQQQ_size = 10000;
   static const int Max_Bc_size = 10000;
   static const int Max_mu_size = 1000;
   static const int Max_trk_size = 10000;
