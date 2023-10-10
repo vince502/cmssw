@@ -1282,6 +1282,7 @@ skipMuonLoop:
 
     	myVertex = vtxFitter.vertex(t_tks);
 
+  std::cout << "Check vertex" << std::endl;
     	if (myVertex.isValid()) {
 			if (resolveAmbiguity_) {
 				float minDz = 999999.;
