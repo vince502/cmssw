@@ -59,9 +59,9 @@ HiOnia2MuMuPAT::HiOnia2MuMuPAT(const edm::ParameterSet& iConfig):
   trackMass_(iConfig.getParameter<double>("trackMass"))
 { 
   produces<pat::CompositeCandidateCollection>("");
+  produces<pat::CompositeCandidateCollection>("diquarkonia");
   produces<pat::CompositeCandidateCollection>("trimuon");
   produces<pat::CompositeCandidateCollection>("dimutrk");
-  produces<pat::CompositeCandidateCollection>("diquarkonia");
 }
 
 
@@ -1230,6 +1230,7 @@ HiOnia2MuMuPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 skipMuonLoop:
   unsigned dimuSize = oniaOutput->size();
+  std::cout << "starting diq loop" << std::endl;
   if( dimuSize > 1)
   for(auto idxDimu : ROOT::TSeqL(dimuSize)){
 	const pat::CompositeCandidate& outDimu1 = (*oniaOutput)[idxDimu];
@@ -1306,6 +1307,7 @@ skipMuonLoop:
 				}
 			}//if resolve ambiguity
 
+  std::cout << "Removed ambiguity" << std::endl;
 			theOriginalPV = thePrimaryV;
 
 			vChi2 = myVertex.totalChiSquared();
@@ -1393,6 +1395,7 @@ skipMuonLoop:
     	}
     	for (std::map<std::string, float>::iterator i = userFloat.begin(); i != userFloat.end(); i++) { myCand.addUserFloat(i->first , i->second); }
 //    	goodMu1Mu2 = true;
+std::cout << myCand->size() << std::endl;
 	diquarkoniaOutput->push_back(myCand);
 	}
 
@@ -1402,7 +1405,7 @@ skipMuonLoop:
   std::sort(oniaOutput->begin(),oniaOutput->end(),vPComparator_);
   iEvent.put(std::move(oniaOutput),"");
 
-  std::sort(oniaOutput->begin(),oniaOutput->end(),vPComparator_);
+  std::sort(diquarkoniaOutput->begin(),diquarkoniaOutput->end(),vPComparator_);
   iEvent.put(std::move(diquarkoniaOutput),"diquarkonia");
 
   if(doTrimuons_){
