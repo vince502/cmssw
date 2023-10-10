@@ -1395,7 +1395,7 @@ skipMuonLoop:
     	}
     	for (std::map<std::string, float>::iterator i = userFloat.begin(); i != userFloat.end(); i++) { myCand.addUserFloat(i->first , i->second); }
 //    	goodMu1Mu2 = true;
-std::cout << myCand->size() << std::endl;
+//std::cout << myCand->size() << std::endl;
 	diquarkoniaOutput->push_back(myCand);
 	}
 
