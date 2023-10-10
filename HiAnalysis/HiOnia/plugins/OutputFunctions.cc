@@ -145,6 +145,7 @@ HiOniaAnalyzer::InitTree()
     myTree->Branch("Reco_QQ_4mom_phi", &Reco_QQ_4mom_phi, 32000, 0);
     myTree->Branch("Reco_QQ_4mom_m"  , &Reco_QQ_4mom_m  , 32000, 0);
 
+    myTree->Branch("Reco_QQQQ_size", &Reco_QQQQ_size,  "Reco_QQQQ_size/S");
     myTree->Branch("Reco_QQQQ_4mom_pt" , &Reco_QQQQ_4mom_pt , 32000, 0);
     myTree->Branch("Reco_QQQQ_4mom_eta", &Reco_QQQQ_4mom_eta, 32000, 0);
     myTree->Branch("Reco_QQQQ_4mom_phi", &Reco_QQQQ_4mom_phi, 32000, 0);
