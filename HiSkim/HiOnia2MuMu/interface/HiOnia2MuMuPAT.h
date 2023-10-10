@@ -84,7 +84,6 @@ class HiOnia2MuMuPAT : public edm::stream::EDProducer<> {
     bool onlySoftMuons_;
     bool onlySingleMuons_;
     bool doTrimuons_;
-    bool doDiquarkonia_;
     bool DimuonTrk_;
     int flipJpsiDirection_;
     converter::TrackToCandidate Converter_;

@@ -52,7 +52,6 @@ HiOnia2MuMuPAT::HiOnia2MuMuPAT(const edm::ParameterSet& iConfig):
   onlySoftMuons_(iConfig.getParameter<bool>("onlySoftMuons")),
   onlySingleMuons_(iConfig.getParameter<bool>("onlySingleMuons")),
   doTrimuons_(iConfig.getParameter<bool>("doTrimuons")),
-  doDiquarkonia_(iConfig.getParameter<bool>("doDiquarkonia")),
   DimuonTrk_(iConfig.getParameter<bool>("DimuonTrk")),
   flipJpsiDirection_(iConfig.getParameter<int>("flipJpsiDirection")),
   Converter_(converter::TrackToCandidate(iConfig, consumesCollector())),
