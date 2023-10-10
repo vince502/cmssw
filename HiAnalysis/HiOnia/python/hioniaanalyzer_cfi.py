@@ -5,6 +5,7 @@ hionia = cms.EDAnalyzer('HiOniaAnalyzer',
                         srcMuon          = cms.InputTag("patMuonsWithTrigger"),
                         srcMuonNoTrig    = cms.InputTag("patMuonsWithoutTrigger"),
                         srcDimuon        = cms.InputTag("onia2MuMuPatGlbGlb"),
+                        srcDiquarkonia        = cms.InputTag("onia2MuMuPatGlbGlb","diquarkonia"),
                         srcTrimuon       = cms.InputTag("onia2MuMuPatGlbGlb","trimuon"),      # Name of Onia Skim Collection for trimuons
                         srcDimuTrk       = cms.InputTag("onia2MuMuPatGlbGlb","dimutrk"),      # Name of Onia Skim Collection for Jpsi+track
                         srcSV            = cms.InputTag("inclusiveSecondaryVerticesLoose",""), # Name of SV collection

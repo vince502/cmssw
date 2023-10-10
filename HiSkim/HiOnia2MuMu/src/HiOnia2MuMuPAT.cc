@@ -1394,11 +1394,16 @@ skipMuonLoop:
     	for (std::map<std::string, float>::iterator i = userFloat.begin(); i != userFloat.end(); i++) { myCand.addUserFloat(i->first , i->second); }
 //    	goodMu1Mu2 = true;
 		}
+		diquarkoniaOutput->push_back(myCand);
+
   	}
 
   //  std::sort(oniaOutput->begin(),oniaOutput->end(),pTComparator_);
   std::sort(oniaOutput->begin(),oniaOutput->end(),vPComparator_);
   iEvent.put(std::move(oniaOutput),"");
+
+  std::sort(oniaOutput->begin(),oniaOutput->end(),vPComparator_);
+  iEvent.put(std::move(diquarkoniaOutput),"diquarkonia");
 
   if(doTrimuons_){
     std::sort(trimuOutput->begin(),trimuOutput->end(),vPComparator_);
