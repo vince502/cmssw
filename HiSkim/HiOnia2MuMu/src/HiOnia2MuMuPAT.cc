@@ -1266,6 +1266,7 @@ skipMuonLoop:
 		myCand.addDaughter(outDimu1,"dimuon1");
 		myCand.addDaughter(outDimu2,"dimuon2");
 
+  std::cout << "Diquarkonia" << std::endl;
 		LorentzVector diquarkonia = outDimu1.p4() + outDimu2.p4();
 		myCand.setP4(diquarkonia);
 		myCand.setCharge(outDimu1.charge() + outDimu2.charge());
