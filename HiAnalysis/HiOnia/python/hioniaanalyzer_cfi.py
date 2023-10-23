@@ -10,7 +10,7 @@ hionia = cms.EDAnalyzer('HiOniaAnalyzer',
                         srcSV            = cms.InputTag("inclusiveSecondaryVerticesLoose",""), # Name of SV collection
                         srcTracks        = cms.InputTag("generalTracks"),
                         genParticles     = cms.InputTag("genParticles"),
-                        EvtPlane         = cms.InputTag("hiEvtPlane"),
+                        EvtPlane         = cms.InputTag("hiEvtPlaneFlat"),
                         primaryVertexTag = cms.InputTag("offlinePrimaryVertices"),
 
                         triggerResultsLabel = cms.InputTag("TriggerResults","","HLT"),

@@ -25,6 +25,7 @@ UsePropToMuonSt = True # whether to use L1 propagated muons (works only for mini
 pdgId = 443 # J/Psi : 443, Y(1S) : 553
 useMomFormat = "vector" # default "array" for TClonesArray of TLorentzVector. Use "vector" for std::vector<float> of pt, eta, phi, M
 useJSON = True # Use json file with cmsRun
+doEvtPlane = True
 #----------------------------------------------------------------------------
 
 # Print Onia Tree settings:
@@ -56,13 +57,14 @@ options = VarParsing.VarParsing ('analysis')
 
 options.inputFiles = [
 #  '/store/hidata/HIRun2023A/HIPhysicsRawPrime0/MINIAOD/PromptReco-v2/000/374/668/00000/1bb772f3-bfa5-46ef-81d2-8cf78de992b0.root'
-    '/store/hidata/HIRun2023A/HIPhysicsRawPrime13/MINIAOD/PromptReco-v2/000/374/730/00000/05ee12dc-0ce8-407a-8b13-e310e3678400.root',
+#    '/store/hidata/HIRun2023A/HIPhysicsRawPrime13/MINIAOD/PromptReco-v2/000/374/730/00000/05ee12dc-0ce8-407a-8b13-e310e3678400.root',
+    'file:/eos/cms/store/group/phys_heavyions/dileptons/Data2023/MINIAOD/HIPhysicsRawPrime0/Run375064/7ed5766f-6b1d-415e-8916-e62825a6347f.root',
 ]
 
 options.outputFile = 'Oniatree_2023PbPbPromptRecoData_132X_miniAOD.root'
 options.secondaryOutputFile = "Jpsi_Dataset.root"
 
-options.maxEvents = -1 # -1 means all events
+options.maxEvents = 2000 # -1 means all events
 
 # Get and parse the command line arguments
 options.parseArguments()
@@ -145,6 +147,8 @@ oniaTreeAnalyzer(process,
                  muonSelection=muonSelection, L1Stage=2, isMC=isMC, pdgID=pdgId, outputFileName=options.outputFile, doTrimu=doTrimuons,
                  OnlySingleMuons=False
 )
+
+process.hionia.useEvtPlane      = cms.untracked.bool(doEvtPlane)
 
 if applyCuts:
   process.onia2MuMuPatGlbGlb.LateDimuonSel = cms.string("userFloat(\"vProb\")>0.01")
