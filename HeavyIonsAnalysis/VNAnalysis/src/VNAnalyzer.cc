@@ -10,7 +10,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
@@ -85,7 +85,7 @@ string AnalNames[]={
 // class declaration
 //
 
-class VNAnalyzer : public edm::EDAnalyzer {
+class VNAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources, edm::one::WatchRuns> {
 public:
   explicit VNAnalyzer(const edm::ParameterSet&);
   ~VNAnalyzer();
