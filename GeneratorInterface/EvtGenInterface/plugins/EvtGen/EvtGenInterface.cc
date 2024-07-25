@@ -479,13 +479,24 @@ HepMC::GenEvent* EvtGenInterface::decay( HepMC::GenEvent* evt ){
 
   // decay all forced particles (only 1/event is forced)... with no mixing allowed
   unsigned int which = (unsigned int)(nisforced*flat());
+  unsigned int which2 =-1;
+  if(nisforced > 1) {
+    which2 = (unsigned int) ((nisforced-1)*flat());
+    if(which2 >=which) which2++;
+  }
   if(which==nisforced && nisforced>0) which=nisforced-1;
+  if(which2==nisforced && nisforced>0) which2=nisforced-1;
 
   unsigned int idx=0;
   for (unsigned int i=0; i<forcedparticles.size(); i++){
     for (unsigned int j=0; j<forcedparticles.at(i).size(); j++){
       EvtId idEvt = EvtPDL::evtIdFromStdHep(forcedparticles.at(i).at(j)->pdg_id()); // "standard" decay Id
       if ( idx==which ) {
+        idEvt = forced_id[i];              // force decay Id
+        edm::LogInfo("EvtGenInterface::decay ") << EvtPDL::getStdHep(idEvt) << " will force to decay " << idx+1
+             << " out of " << nisforced  << std::endl;        
+      }
+      if ( idx==which2 ) {
         idEvt = forced_id[i];              // force decay Id
         edm::LogInfo("EvtGenInterface::decay ") << EvtPDL::getStdHep(idEvt) << " will force to decay " << idx+1
              << " out of " << nisforced  << std::endl;        
