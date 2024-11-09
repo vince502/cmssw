@@ -18,7 +18,7 @@
  */
 
 
-#include "FWCore/Framework/interface/EDFilter.h"
+#include "FWCore/Framework/interface/one/EDFilter.h"
 
 #include "DataFormats/JetReco/interface/Jet.h"
 #include "DataFormats/JetReco/interface/PFJet.h"
@@ -32,7 +32,7 @@
 #include "FWCore/Framework/interface/Event.h"
 
 template < class T, typename C = std::vector<typename T::ConstituentTypeFwdPtr> >
-class JetXSelector : public edm::EDFilter {
+class JetXSelector : public edm::one::EDFilter<> {
 
 public:
 
@@ -49,11 +49,10 @@ public:
     produces< ConstituentsOutput > ("constituents");
   }
 
-  virtual ~JetXSelector() {}
+  ~JetXSelector() override {};
 
-  virtual void beginJob() override {}
-  virtual void endJob() override {}
-
+  virtual void beginJob() {};
+  virtual void endJob() {};
   /*
   // Default initialization is for edm::FwdPtr. Specialization (below) is for edm::Ptr.
   typename ConstituentsOutput::value_type const initptr(edm::Ptr<pat::PackedCandidate> const& dau) const {

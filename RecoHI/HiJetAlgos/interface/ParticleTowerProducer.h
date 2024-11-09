@@ -4,7 +4,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDProducer.h"
+#include "FWCore/Framework/interface/stream/EDProducer.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -24,15 +24,16 @@
 #include "TRandom.h"
 
 
-class ParticleTowerProducer : public edm::EDProducer {
+class ParticleTowerProducer : public edm::stream::EDProducer<> {
  public:
   explicit ParticleTowerProducer(const edm::ParameterSet&);
   ~ParticleTowerProducer() override;
   
  private:
-  void beginJob() override ;
+  virtual void beginJob() ;
+  void beginRun(edm::Run const&, edm::EventSetup& iSetup) ;
   void produce(edm::Event&, const edm::EventSetup&) override;
-  void endJob() override ;
+  virtual void endJob();
   void resetTowers(edm::Event& iEvent,const edm::EventSetup& iSetup);
   DetId getNearestTower(const reco::PFCandidate & in) const;
   DetId getNearestTower(double eta, double phi) const;
@@ -43,6 +44,7 @@ class ParticleTowerProducer : public edm::EDProducer {
   // ----------member data ---------------------------
 
   edm::EDGetTokenT<reco::PFCandidateCollection> src_;
+  edm::ESGetToken<CaloGeometry, CaloGeometryRecord> geoToken_;
   bool useHF_;
   
   std::map<DetId,double> towers_;
@@ -51,7 +53,8 @@ class ParticleTowerProducer : public edm::EDProducer {
   double PI;
   TRandom* random_;
   
-  CaloGeometry const *  geo_;                       // geometry
+  // CaloGeometry const *  geo_;                       // geometry
+  edm::ESHandle<CaloGeometry> geo_;
 
 
   static const double etatow[];

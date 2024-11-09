@@ -24,7 +24,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/global/EDProducer.h"
+#include "FWCore/Framework/interface/stream/EDProducer.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -45,7 +45,7 @@
 
 
 
-class HFdecayProductTagger : public edm::global::EDProducer<> {
+class HFdecayProductTagger : public edm::stream::EDProducer<> {
 public:
   explicit HFdecayProductTagger(const edm::ParameterSet& cfg);
   ~HFdecayProductTagger() override = default;
@@ -53,7 +53,8 @@ public:
   static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
   
 private:
-  void produce(edm::StreamID, edm::Event &, const edm::EventSetup &) const override;
+  // void produce(edm::StreamID, edm::Event &, const edm::EventSetup &) const override;
+  void produce(edm::Event &, const edm::EventSetup &) override;
   
   // ----------member data ---------------------------
   const edm::EDGetTokenT<reco::GenParticleCollection> genParticlesToken_;
@@ -81,7 +82,7 @@ HFdecayProductTagger::HFdecayProductTagger(const edm::ParameterSet& cfg)
 
 
 // ------------ method called to produce the data  ------------
-void HFdecayProductTagger::produce(edm::StreamID, edm::Event &evt, const edm::EventSetup &setup) const {
+void HFdecayProductTagger::produce(edm::Event &evt, const edm::EventSetup &setup) {
   //std::cout << "Event being processed..." << std::endl;
   // std::cout << "HFdecayProductTagger produce" << std::endl;
 
@@ -123,7 +124,7 @@ void HFdecayProductTagger::produce(edm::StreamID, edm::Event &evt, const edm::Ev
         //           << std::endl;
 
 
-        for (const reco::GenParticle daughter : daughterCollection){
+        for (const reco::GenParticle &daughter : daughterCollection){
           // std::cout << "daughter charge " << daughter.charge() << " and status " << daughter.status() << std::endl;
           // auto packedDaughter = pat::PackedGenParticle(daughter, reco::GenParticleRef());
           pat::PackedGenParticle packedDaughter(daughter, reco::GenParticleRef());
@@ -154,7 +155,7 @@ void HFdecayProductTagger::produce(edm::StreamID, edm::Event &evt, const edm::Ev
         // Add the daughters to the output collection
         reco::GenParticleCollection daughterCollection = {};
         daughterCollection = addDaughters(genPart, daughterCollection, hfCode);
-        for (const reco::GenParticle daughter : daughterCollection){
+        for (const reco::GenParticle &daughter : daughterCollection){
           pat::PackedGenParticle packedDaughter(daughter, reco::GenParticleRef());
           outputCollection->push_back(packedDaughter);
         }

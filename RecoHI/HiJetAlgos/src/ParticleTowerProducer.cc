@@ -23,7 +23,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDProducer.h"
+#include "FWCore/Framework/interface/stream/EDProducer.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -92,6 +92,11 @@ ParticleTowerProducer::~ParticleTowerProducer()
 //
 // member functions
 //
+void 
+ParticleTowerProducer::beginRun(edm::Run const&, edm::EventSetup& iSetup)
+{
+  geo_ = iSetup.getHandle(geoToken_);
+}
 
 // ------------ method called to produce the data  ------------
 void
@@ -100,9 +105,11 @@ ParticleTowerProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup
    using namespace edm;
 
    if(!geo_){
-      edm::ESHandle<CaloGeometry> pG;
-      iSetup.get<CaloGeometryRecord>().get(pG);
-      geo_ = pG.product();
+      // edm::ESHandle<CaloGeometry> pG;
+      // iSetup.get<CaloGeometryRecord>().get(pG);
+      // edm::ESHandle<CaloGeometry> geom = es.getHandle(geoToken_);
+      geoToken_ = esConsumes<CaloGeometry, CaloGeometryRecord, edm::Transition::BeginRun>();
+      // geo_ = iSetup.getHandle(geom);
    }
 
 

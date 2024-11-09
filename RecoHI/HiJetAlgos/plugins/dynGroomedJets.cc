@@ -291,7 +291,7 @@ reco::BasicJet dynGroomedJets<T>::ConvertFJ2BasicJet(fastjet::PseudoJet *fj,
     }
   }
   reco::BasicJet basicjet;
-  writeSpecific(basicjet, p4, point, constituents, iSetup);
+  writeSpecific(basicjet, p4, point, constituents);
 
   return basicjet;
 }
@@ -322,7 +322,7 @@ reco::BasicJet dynGroomedJets<T>::ConvertFJ2BasicJet(fastjet::PseudoJet *fj,
     }
   }
   reco::BasicJet basicjet;
-  writeSpecific(basicjet, p4, point, constituents, iSetup);
+  writeSpecific(basicjet, p4, point, constituents);
 
   return basicjet;
 }
