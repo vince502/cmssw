@@ -21,7 +21,15 @@
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
+#include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
 #include "fastjet/contrib/Njettiness.hh"
+#include "AnalysisDataFormats/TrackInfo/interface/TrackToGenParticleMap.h"
+#include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
+
+//#include "SimDataFormats/JetMatching/interface/JetFlavourInfo.h"
+//#include "SimDataFormats/JetMatching/interface/JetFlavourInfoMatching.h"
+#include "DataFormats/JetMatching/interface/JetFlavourInfoMatching.h"
+#include "DataFormats/JetMatching/interface/JetFlavourInfo.h"
 //
 
 /**\class HiInclusiveJetAnalyzer
@@ -60,6 +68,7 @@ private:
   int getGroomedGenJetIndex(const reco::GenJet& jet) const;
   void analyzeRefSubjets(const reco::GenJet& jet);
   void analyzeGenSubjets(const reco::GenJet& jet);
+  int trkGenPartMatch(reco::Jet::Constituent constituent, std::vector<pat::PackedGenParticle> genParticlesV, double ptCut) const;
 
   int TaggedJet(pat::Jet patjet, edm::Handle<reco::JetTagCollection > jetTags );
 
@@ -73,6 +82,11 @@ private:
   edm::EDGetTokenT<edm::HepMCProduct> eventInfoTag_;
   edm::EDGetTokenT<GenEventInfoProduct> eventGenInfoTag_;
 
+  bool doMujets_ = false;
+  edm::EDGetTokenT<pat::JetCollection> mujetTag_;
+
+  edm::EDGetTokenT<reco::JetTagCollection> jetTagInfos_;
+
   std::string jetName_;  //used as prefix for jet structures
   edm::EDGetTokenT<edm::View<reco::Jet>> subjetGenTag_;
   edm::Handle<reco::JetView> gensubjets_;
@@ -83,6 +97,26 @@ private:
   edm::Handle<edm::ValueMap<float>> genSymVM_;
   edm::EDGetTokenT<edm::ValueMap<int>> tokenGenDroppedBranches_;
   edm::Handle<edm::ValueMap<int>> genDroppedBranchesVM_;
+
+  edm::Handle<edm::View<reco::Jet>> groomedJets; 
+  edm::EDGetTokenT<edm::View<reco::Jet>> groomedJetsToken_;
+
+  edm::Handle<edm::View<reco::Jet>> groomedGenJets; 
+  edm::EDGetTokenT<edm::View<reco::Jet>> groomedGenJetsToken_;
+
+  edm::EDGetTokenT<edm::View<reco::PFCandidate>> droppedTracksToken_;  
+
+  edm::EDGetTokenT<edm::View<reco::PFCandidate>> pseudoHFToken_;
+  edm::EDGetTokenT<edm::View<reco::PFCandidate>> pseudoHFGenToken_;
+
+  edm::EDGetTokenT<reco::TrackToGenParticleMap> trackToGenParticleMapToken_;
+
+  // b and c hadrons
+  edm::EDGetTokenT<reco::JetFlavourInfoMatchingCollection> jetFlavourInfosToken_;
+
+  // [DEBUG]
+  edm::EDGetTokenT<std::vector<reco::Vertex>> primaryVerticesToken_;
+  edm::Handle<std::vector<reco::Vertex>> primaryVertices;
 
   bool doMatch_;
   bool useVtx_;
@@ -107,15 +141,26 @@ private:
   bool doGenTaus_;
   bool doGenSym_;
   bool doSubJets_;
+  bool doSubJetsNew_;
   bool doJetConstituents_;
   bool doGenSubJets_;
   bool doCaloJets_;
+  bool doTracks_;
+  double trkPtCut_;
+  std::string ipTagInfoLabel_;
+  bool doSvtx_;
+  std::string svTagInfoLabel_;
+  bool doJetTrueFlavour_;
 
   TTree* t;
   edm::Service<TFileService> fs1;
 
   std::string bTagJetName_;
   std::string particleTransformerJetTags_;
+  std::string trackCHEBJetTags_;
+  std::string trackCHPBJetTags_;
+  std::string ipTagInfos_;
+  std::string svTagInfos_;
 
   edm::EDGetTokenT<reco::JetTagCollection> particleTransformerJetTagsTkn_,particleTransformerJetTagsBBTkn_,particleTransformerJetTagsLepBTkn_;
 
@@ -129,11 +174,36 @@ private:
     int evt = 0;
     int lumi = 0;
     int ncalo = 0;
+    int nvtx=0;
+
+    float jer_sf_nom[MAXJETS]={0};
+    float jer_sf_up[MAXJETS]={0};
+    float jer_sf_down[MAXJETS]={0};
+    float jec_unc[MAXJETS]={0};
 
     float rawpt[MAXJETS] = {0};
     float jtpt[MAXJETS] = {0};
     float jteta[MAXJETS] = {0};
     float jtphi[MAXJETS] = {0};
+
+    // jet true flavour tagging
+    int jtParFlav[MAXJETS]={0};
+    int jtHadFlav[MAXJETS]={0};
+    int jtNbHad[MAXJETS]={0};
+    int jtNcHad[MAXJETS]={0};
+    int jtNbPar[MAXJETS]={0};
+    int jtNcPar[MAXJETS]={0};
+
+    // jet aggregated pseudo-B
+    float jtmB[MAXJETS]={0};
+    float jtBpt[MAXJETS]={0};
+    float jtBntracks[MAXJETS]={0};
+    float jtptCh[MAXJETS]={0};
+    float refmB[MAXJETS]={0};
+    float refBpt[MAXJETS]={0};
+    float refBntracks[MAXJETS]={0};
+    float refptCh[MAXJETS]={0};
+    int refNtrk[MAXJETS]={0};
 
     //reWTA reclusted jet axis
     float WTAeta[MAXJETS] = {0};
@@ -274,6 +344,33 @@ private:
     float svtxTrkSumChi2[MAXJETS] = {0};
     int svtxTrkNetCharge[MAXJETS] = {0};
     int svtxNtrkInCone[MAXJETS] = {0};
+
+    int ntrkInSvtxNotInJet=0; 
+    int trkInSvtxNotInJetSvId[MAXTRACKS]={0};
+    int trkInSvtxNotInJetOtherJetId[MAXTRACKS]={0};
+    int trkInSvtxNotInJetMatchSta[MAXTRACKS]={0};
+    float trkInSvtxNotInJetPt[MAXTRACKS]={0};
+    float trkInSvtxNotInJetEta[MAXTRACKS]={0};
+    float trkInSvtxNotInJetPhi[MAXTRACKS]={0};
+
+    int ntrk=0;
+    int jtNtrk[MAXJETS]={0};
+    int trkJetId[MAXTRACKS]={0};
+    int trkSvtxId[MAXTRACKS]={0};
+    float trkPt[MAXTRACKS]={0};
+    float trkEta[MAXTRACKS]={0};
+    float trkPhi[MAXTRACKS]={0};
+    float trkIp3d[MAXTRACKS]={0};
+    float trkIp3dSig[MAXTRACKS]={0};
+    float trkIp2d[MAXTRACKS]={0};
+    float trkIp2dSig[MAXTRACKS]={0};
+    float trkDistToAxis[MAXTRACKS]={0};
+    float trkDistToAxisSig[MAXTRACKS]={0};
+    float trkIpProb3d[MAXTRACKS]={0};
+    float trkIpProb2d[MAXTRACKS]={0};
+    float trkDz[MAXTRACKS]={0};
+    int trkPdgId[MAXTRACKS]={0};
+    int trkMatchSta[MAXTRACKS]={0};
 
     float trackPtRel[MAXTRACKS] = {0};
     float trackPtRatio[MAXTRACKS] = {0};

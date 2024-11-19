@@ -28,7 +28,7 @@ process.source = cms.Source("PoolSource",
 
 # Number of events we want to process, -1 = all events
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(20)
+    input = cms.untracked.int32(200)
 )
 
 #####################################################################################
@@ -46,6 +46,10 @@ process.load('FWCore.MessageService.MessageLogger_cfi')
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, '141X_dataRun3_Prompt_v3', '')
 process.HiForestInfo.GlobalTagLabel = process.GlobalTag.globaltag
+
+import FWCore.PythonUtilities.LumiList as LumiList
+process.source.lumisToProcess = LumiList.LumiList(filename = '/eos/user/c/cmsdqm/www/CAF/certification/Collisions24/Cert_Collisions2024_ppref_387474_387721_Muon.json').getVLuminosityBlockRange()
+
 
 # FIXME: Old calibration here, might need to update
 # Commenting out until understood

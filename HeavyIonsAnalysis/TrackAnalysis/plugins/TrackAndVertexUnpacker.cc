@@ -204,4 +204,4 @@ void pat::TrackAndVertexUnpacker::fillDescriptions(edm::ConfigurationDescription
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 using namespace pat;
-DEFINE_FWK_MODULE(TrackAndVertexUnpacker);
+//DEFINE_FWK_MODULE(TrackAndVertexUnpacker);
