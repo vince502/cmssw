@@ -3,7 +3,7 @@ from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_('General')
-config.General.requestName = 'JspiJet_VertexCompsoite_DoubleMu0to5_ppref_v1'
+config.General.requestName = 'JspiJet_VertexCompsoite_DoubleMu0to4_ppref_v2'
 config.General.workArea = 'crab_project'
 config.General.transferOutputs = True
 config.General.transferLogs = False

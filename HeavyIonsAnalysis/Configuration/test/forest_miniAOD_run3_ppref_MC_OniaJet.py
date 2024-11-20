@@ -1,0 +1,314 @@
+### HiForest Configuration
+# Collisions: pp
+# Type: MC
+# Input: miniAOD
+
+import FWCore.ParameterSet.Config as cms
+from Configuration.Eras.Era_Run3_2024_ppRef_cff import Run3_2024_ppRef
+process = cms.Process('HiForest', Run3_2024_ppRef)
+process.options = cms.untracked.PSet()
+
+#####################################################################################
+# HiForest labelling info
+#####################################################################################
+
+process.load("HeavyIonsAnalysis.EventAnalysis.HiForestInfo_cfi")
+process.HiForestInfo.info = cms.vstring("HiForest, miniAOD, 141X, mc")
+
+#####################################################################################
+# Input source
+#####################################################################################
+
+process.source = cms.Source("PoolSource",
+    duplicateCheckMode = cms.untracked.string("noDuplicateCheck"),
+    fileNames = cms.untracked.vstring(
+        '/store/user/soohwan/Run3_2024/MC/RECO_PAT_141X_PyhitaX_04Nov2024_v2/Psi2S_OniaShower_PythiaOnly_07Nov_v1/RECO_PAT_141X_PyhitaX_04Nov2024_v2/241108_123917/0000/step3_JpsiShower_61.root',
+    )
+)
+
+# Number of events we want to process, -1 = all events
+process.maxEvents = cms.untracked.PSet(
+    input = cms.untracked.int32(100)
+)
+
+#####################################################################################
+# Load Global Tag, Geometry, etc.
+#####################################################################################
+
+process.load('Configuration.StandardSequences.Services_cff')
+process.load('Configuration.Geometry.GeometryDB_cff')
+process.load('Configuration.StandardSequences.MagneticField_38T_cff')
+process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
+process.load('FWCore.MessageService.MessageLogger_cfi')
+
+# TODO: Global tag complete guess from the list. Probably wrong. But does not crash
+from Configuration.AlCa.GlobalTag import GlobalTag
+process.GlobalTag = GlobalTag(process.GlobalTag, '140X_mcRun3_2024_realistic_v7', '')
+process.HiForestInfo.GlobalTagLabel = process.GlobalTag.globaltag
+
+# TODO: Old calibration here, might need to update
+process.GlobalTag.toGet.extend([
+    cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
+             tag = cms.string("JPcalib_MC94X_2017pp_v2"),
+             connect = cms.string("frontier://FrontierProd/CMS_CONDITIONS")
+
+         )
+      ])
+
+#####################################################################################
+# Define tree output
+#####################################################################################
+
+process.TFileService = cms.Service("TFileService",
+    fileName = cms.string("HiForestMiniAOD_MC.root"))
+
+#####################################################################################
+# Additional Reconstruction and Analysis: Main Body
+#####################################################################################
+
+#############################
+# Jets
+#############################
+process.load("HeavyIonsAnalysis.JetAnalysis.ak4PFJetSequence_ppref_mc_cff")
+#####################################################################################
+
+############################
+# Event Analysis
+############################
+# use data version to avoid PbPb MC
+process.load('HeavyIonsAnalysis.EventAnalysis.hievtanalyzer_data_cfi')
+process.hiEvtAnalyzer.Vertex = cms.InputTag("offlineSlimmedPrimaryVertices")
+process.hiEvtAnalyzer.doCentrality = cms.bool(False)
+process.hiEvtAnalyzer.doEvtPlane = cms.bool(False)
+process.hiEvtAnalyzer.doEvtPlaneFlat = cms.bool(False)
+process.hiEvtAnalyzer.doMC = cms.bool(True) # general MC info
+process.hiEvtAnalyzer.doHiMC = cms.bool(False) # HI specific MC info
+process.hiEvtAnalyzer.doHFfilters = cms.bool(False) # Disable HF filters for ppRef
+
+process.load('HeavyIonsAnalysis.EventAnalysis.hltanalysis_cfi')
+process.load('HeavyIonsAnalysis.EventAnalysis.hltobject_cfi')
+process.load('HeavyIonsAnalysis.EventAnalysis.l1object_cfi')
+
+# TODO: Many of these triggers are not available in the test file
+from HeavyIonsAnalysis.EventAnalysis.hltobject_cfi import trigger_list_mc
+process.hltobject.triggerNames = trigger_list_mc
+
+# Gen particles
+process.load('HeavyIonsAnalysis.EventAnalysis.HiGenAnalyzer_cfi')
+
+#####################################################################################
+# Onia Jets
+triggerList    = {
+		# Double Muon Trigger List
+		'DoubleMuonTrigger' : cms.vstring(
+			      "HLT_PPRefL1DoubleMu0_Open_v",
+            "HLT_PPRefL1DoubleMu0_v",
+            "HLT_PPRefL1DoubleMu0_SQ_v",
+            "HLT_PPRefL1DoubleMu2_v",
+            "HLT_PPRefL1DoubleMu2_SQ_v",
+            "HLT_PPRefL2DoubleMu0_Open_v",
+            "HLT_PPRefL2DoubleMu0_v",
+            "HLT_PPRefL3DoubleMu0_Open_v",
+            "HLT_PPRefL3DoubleMu0_v"
+            ),
+        # Single Muon Trigger List
+        'SingleMuonTrigger' : cms.vstring(
+            "HLT_PPRefL1SingleMu7_v",
+            "HLT_PPRefL1SingleMu12_v",
+            "HLT_PPRefL2SingleMu7_v",
+            "HLT_PPRefL2SingleMu12_v",
+            "HLT_PPRefL2SingleMu15_v",
+            "HLT_PPRefL2SingleMu20_v",
+            "HLT_PPRefL3SingleMu3_v",
+            "HLT_PPRefL3SingleMu5_v",
+            "HLT_PPRefL3SingleMu7_v",
+            "HLT_PPRefL3SingleMu12_v",
+            "HLT_PPRefL3SingleMu15_v",
+            "HLT_PPRefL3SingleMu20_v",
+			)
+                }
+from HiAnalysis.HiOnia.oniaTreeAnalyzer_cff import oniaTreeAnalyzer
+oniaTreeAnalyzer(process,
+                #  muonTriggerList={
+                #     'DoubleMuonTrigger' : cms.vstring(''),
+                #     'SingleMuonTrigger' : cms.vstring(''),
+                #     }, 
+                 muonTriggerList= triggerList,
+                 HLTProName="HLT",
+                 muonSelection="GlbTrk", 
+                 L1Stage=2, 
+                 isMC=True, 
+                 pdgID=443, 
+                 outputFileName= "", 
+                 doTrimu=False,
+                 OnlySingleMuons=False
+)
+
+process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string("(2.6 < mass && mass < 4.0) && charge == 0 && pt > 3")
+process.hionia.SumETvariables   = cms.bool(False)
+process.hionia.applyCuts   = True
+process.hionia.checkTrigNames = False
+process.hionia.primaryVertexTag = "unpackedTracksAndVertices"
+process.hionia.CentralitySrc    = cms.InputTag("hiCentrality")
+process.hionia.CentralityBinSrc = cms.InputTag("centralityBin","HFtowers")
+# process.hionia.muonLessPV       = cms.bool(False)
+process.hionia.SumETvariables   = cms.bool(True)
+process.hionia.applyCuts        = cms.bool(True)
+process.hionia.AtLeastOneCand   = cms.bool(False)
+process.hionia.OneMatchedHLTMu  = cms.int32(False)
+process.hionia.checkTrigNames   = cms.bool(False)#change this to get the event-level trigger info in hStats output (but creates lots of warnings when fake trigger names are used)
+process.hionia.mom4format       = cms.string("vector")
+process.hionia.genealogyInfo    = cms.bool(True)
+from HiSkim.HiOnia2MuMu.onia2MuMuPAT_cff import changeToMiniAOD
+changeToMiniAOD(process)
+process.unpackedMuons.addPropToMuonSt = cms.bool(True)
+################################
+# jet reco sequence
+process.load('HeavyIonsAnalysis.JetAnalysis.akCs4PFJetSequence_pponPbPb_mc_cff')
+
+# HF jet reco sequence
+process.load("RecoHI.HiJetAlgos.PFCandCompositeProducer_cfi")
+#process.pfCandComposites.pfCandTag    = cms.InputTag('particleFlowNoHF')
+process.pfCandComposites.pfCandTag    = cms.InputTag('packedPFCandidates')
+process.pfCandComposites.replaceJMM = True
+process.pfCandComposites.compositeTag = cms.InputTag("onia2MuMuPatGlbGlb")
+process.onia2MuMuPatGlbGlb.addMuonlessPrimaryVertex = False
+
+from HeavyIonsAnalysis.JetAnalysis.clusterJetsFromMiniAOD_cff import setupPprefJets
+
+# process.load("HeavyIonsAnalysis.MuonAnalysis.unpackedMuons_cfi")
+# process.unpackedMuons.muonSelectors = []
+
+#temporarily remove vertex refit
+process.pfCandComposites.isHI = True
+
+#########################
+# Track Analyzer
+#########################
+# process.load('HeavyIonsAnalysis.TrackAnalysis.TrackAnalyzers_cff')
+
+#####################################################################################
+
+#####################
+# photons
+######################
+# process.load('HeavyIonsAnalysis.EGMAnalysis.ggHiNtuplizer_cfi')
+# process.ggHiNtuplizer.doGenParticles = cms.bool(True)
+# process.ggHiNtuplizer.doMuons = cms.bool(False) # unpackedMuons collection not found from file
+# process.ggHiNtuplizer.useValMapIso = cms.bool(False) # True here causes seg fault
+# process.load("TrackingTools.TransientTrack.TransientTrackBuilder_cfi")
+
+####################################################################################
+
+#########################
+# Main analysis list
+#########################
+
+process.forest = cms.Path(
+    process.HiForestInfo +
+    process.hltanalysis *
+    process.hiEvtAnalyzer *
+    process.hltobject +
+    process.l1object +
+    process.HiGenParticleAna 
+    # process.ggHiNtuplizer +
+    # process.trackSequencePP
+)
+
+#####################################################################################
+
+addR3Jets = False
+addR4Jets = True
+
+if addR3Jets or addR4Jets :
+    process.load("HeavyIonsAnalysis.JetAnalysis.extraJets_cff")
+    from HeavyIonsAnalysis.JetAnalysis.clusterJetsFromMiniAOD_cff import setupPprefJets
+
+    if addR3Jets :
+        process.jetsR3 = cms.Sequence()
+        setupPprefJets('ak3PF', process.jetsR3, process, isMC = 1, radius = 0.30, JECTag = 'AK3PF')
+        process.ak3PFpatJetCorrFactors.levels = ['L2Relative', 'L3Absolute']
+        process.load("HeavyIonsAnalysis.JetAnalysis.candidateBtaggingMiniAOD_cff")
+        process.ak3PFJetAnalyzer = process.ak4PFJetAnalyzer.clone(jetTag = "ak3PFpatJets", jetName = 'ak3PF', genjetTag = "ak3GenJetsNoNu")
+        process.forest += process.extraPpJetsMC * process.jetsR3 * process.ak3PFJetAnalyzer
+
+    if addR4Jets :
+        # Recluster using an alias "0" in order not to get mixed up with the default AK4 collections
+        process.jetsR4 = cms.Sequence()
+        setupPprefJets('ak04PF', process.jetsR4, process, isMC = 1, radius = 0.40, JECTag = 'AK4PF')
+        process.ak04PFpatJetCorrFactors.levels = ['L2Relative', 'L3Absolute']
+        process.ak04PFpatJetCorrFactors.primaryVertices = "offlineSlimmedPrimaryVertices"
+        process.load("HeavyIonsAnalysis.JetAnalysis.candidateBtaggingMiniAOD_cff")
+        process.ak4PFJetAnalyzer.jetTag = 'ak04PFpatJets'
+        process.ak4PFJetAnalyzer.jetName = 'ak04PF'
+        process.forest += process.extraPpJetsMC * process.jetsR4 * process.ak4PFJetAnalyzer
+        
+else:
+    process.forest+= process.ak4PFJetAnalyzer
+
+process.load("PhysicsTools.JetMCAlgos.SelectPartons_cff")
+process.allPartons = process.myPartons.clone(src = "prunedGenParticles")
+
+
+process.load("GeneratorInterface.RivetInterface.mergedGenParticles_cfi")
+
+process.load("RecoJets.Configuration.GenJetParticles_cff")
+process.genParticlesForJets.src = 'mergedGenParticles'
+process.genParticlesForJets.storeJMM = cms.untracked.bool(True)
+
+process.load("RecoHI.HiJetAlgos.dynGroomedGenJets_cfi")
+process.dynGroomedGenJets.chargedOnly = cms.bool(False)
+process.dynGroomedGenJets.jetSrc = cms.InputTag("ak4GenJetsNoNu")
+process.dynGroomedGenJets.constitSrc = cms.InputTag("genParticlesForJets")
+
+
+process.load("RecoHI.HiJetAlgos.dynGroomedPatJets_cfi")
+process.dynGroomedPatJets.chargedOnly = cms.bool(False)
+process.dynGroomedPatJets.jetSrc = cms.InputTag("ak4PFXpatJets")
+process.dynGroomedPatJets.constitSrc = cms.InputTag("pfCandComposites")
+
+
+
+process.ak4PFXpatJets = cms.EDFilter("PatJetXSelector",
+                                     src = cms.InputTag("ak04PFpatJets"),
+                                     cut = cms.string("pt > 0.0 && abs(rapidity()) < 3.")
+                                     )
+
+process.jetsR4.remove(process.ak4PFJetAnalyzer)
+process.ak4PFJetAnalyzer.jetTag = "ak4PFXpatJets"
+# process.ak4PFJetAnalyzer.doCandidateBtagging = False
+process.ak4PFJetAnalyzer.doSubJets = False
+process.ak4PFJetAnalyzer.doSubJetsNew = True
+process.ak4PFJetAnalyzer.jetName = 'ak04PF'
+process.ak4PFJetAnalyzer.doSubEvent = False 
+process.ak4PFJetAnalyzer.groomedJets = cms.untracked.InputTag("dynGroomedPatJets")
+process.ak4PFJetAnalyzer.groomedGenJets = cms.untracked.InputTag("dynGroomedGenJets")
+process.ak4PFJetAnalyzer.genjetTag = "ak4GenJetsNoNu"
+process.ak4PFJetAnalyzer.doGenSubJets = False
+
+process.ak04PFJets.jetPtMin = 0.
+process.ak4PFJetAnalyzer.jetPtMin = 0.
+process.ak4PFJetAnalyzer.genPtMin = 0.
+
+process.jpsiJets = cms.Sequence(
+    # process.particleFlowNoHF * 
+    process.hiSignalGenParticles *
+    process.pfCandComposites *
+    process.allPartons *
+    process.mergedGenParticles *
+    process.genParticlesForJets *
+    process.jetsR4 *
+    process.ak4PFXpatJets *
+    process.dynGroomedGenJets *
+    process.dynGroomedPatJets *
+    process.ak4PFJetAnalyzer
+)
+
+process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.jpsiJets + process.hionia)
+
+# process.Onia2MuMuPAT.remove(process.patTriggerAll)
+# process.forest.remove(process.patTriggerAll)
+
+
+# process.schedule = cms.Schedule( process.forest, process.jpsiJetsPath)
+process.schedule = cms.Schedule( process.jpsiJetsPath)
