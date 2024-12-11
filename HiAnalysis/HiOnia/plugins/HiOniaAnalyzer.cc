@@ -67,7 +67,7 @@ HiOniaAnalyzer::HiOniaAnalyzer(const edm::ParameterSet& iConfig)
       _checkTrigNames(iConfig.getParameter<bool>("checkTrigNames")),
       hltPrescaleProvider(iConfig, consumesCollector(), *this),
       _iConfig(iConfig) {
-  usesResource(TFileService::kSharedResource);
+  // usesResource(TFileService::kSharedResource);
 
   if (_doTrimuons && _doDimuTrk) {
     cout << "FATAL ERROR: _doTrimuons and _doDimuTrk cannot be both true! Code not designed to do both at a time; "

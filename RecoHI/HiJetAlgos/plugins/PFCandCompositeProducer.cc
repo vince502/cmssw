@@ -60,14 +60,15 @@ PFCandCompositeProducer::PFCandCompositeProducer(const ParameterSet& iConfig)
   //PI = TMath::Pi();
   jpsiTriggFilter_ = iConfig.getParameter<std::string>("jpsiTrigFilter");
   isHI_ = iConfig.getParameter<bool>("isHI");
-  replaceJMM_ = iConfig.getParameter<bool>("replaceJMM");
+  replaceOniaMM_ = iConfig.getParameter<bool>("replaceOniaMM");
+  massOnia_ = iConfig.getParameter<double>("massOnia");
   replaceDKPi_ = iConfig.getParameter<bool>("replaceDKPi");
   
   //produces<reco::PFCandidateCollection>();
   produces<PackedCandidateCollection>();
 
-  if(!replaceJMM_ && !replaceDKPi_) std::cout<<" PFCandCompositeProducer ain't doing jack "<<std::endl;
-  if(replaceJMM_ && replaceDKPi_) std::cout<<" removing multiple species not yet supported "<<std::endl;
+  if(!replaceOniaMM_ && !replaceDKPi_) std::cout<<" PFCandCompositeProducer ain't doing jack "<<std::endl;
+  if(replaceOniaMM_ && replaceDKPi_) std::cout<<" removing multiple species not yet supported "<<std::endl;
 
 }
 
@@ -105,10 +106,9 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
   std::vector<CompositeCandidate> selComposites;
    
   //auto prod = std::make_unique<reco::PFCandidateCollection>();
-  auto prod = std::make_unique<PackedCandidateCollection>();
   
   
-  if(nComp>0){
+  if(nComp==0 ){ iEvent.put(std::make_unique<PackedCandidateCollection>()); return;}
 
     // sort in pt
     //std::sort(composites->begin(), composites->end(), ptComparator); 
@@ -118,24 +118,18 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
     Handle<PackedCandidateCollection> pfCands;
     iEvent.getByToken(pfCandToken_, pfCands);
 
-    //prod->reserve(pfCands->size());  // is this needed?
+    auto prod = std::make_unique<PackedCandidateCollection>();
           
     // first pass over composite candidates, apply selections and check for presence in PF candidates   
-    for (std::vector<CompositeCandidate>::const_iterator it=composites->begin();
-	 it!=composites->end(); ++it) {
-      
-      const CompositeCandidate cand = *it;
-      
+    //for (std::vector<CompositeCandidate>::const_iterator it=composites->begin(); it!=composites->end(); ++it) {
+    for ( const auto& cand : *composites ){
       if(replaceDKPi_){  // only selection is pt > 3 GeV for now
-	
 	if( seld0Cand(cand) ){	 
 	  bool isDup = false;
 	  for(unsigned i=0;i<selComposites.size();i++){
-	    if(checkDupTrack(cand,selComposites[i])) isDup = true;
+	    if(checkDupTrack(cand,selComposites[i])){ isDup = true; break;}
 	  }
-	  
 	  if(isDup) continue;
-	  
 	  selComposites.push_back(cand);
 	  
 	  double candE = sqrt(cand.p()*cand.p() + 1.86484*1.86484);
@@ -154,7 +148,7 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
 	  prod->push_back(newPFCand);     
 	}
       }
-      else if(replaceJMM_){
+      else if(replaceOniaMM_){
 	// apply some selections on the j/psi candidates here
 	if( selJpsiCand(cand) && selMuonCand(cand,"muon1") && selMuonCand(cand,"muon2") ){
 
@@ -166,12 +160,11 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
 	      std::cout<<" muon # "<<i<< " is a duplicate "<<std::endl;
 	    }
 	  }
-	  //std::cout<<" isDup ? "<<isDup<<std::endl;
 	  if(isDup) continue;
 	  //if (fabs(cand.y())>2.5) {std::cout<<"jet |y| >2.5. I will skip the jet"<< std::endl; continue;}
 	  selComposites.push_back(cand);
 	  
-	  double candE = sqrt(cand.p()*cand.p() + 3.096916*3.096916);
+	  double candE = sqrt(cand.p()*cand.p() + massOnia_*massOnia_);
 	  //reco::Particle::LorentzVector p4(cand.px(),cand.py(),cand.pz(),candE);
 	  PackedCandidate::LorentzVector p4(cand.px(),cand.py(),cand.pz(),candE);
 	  // charge, LorentzVector, type (reco::PFCandidate::ParticleType::X )
@@ -190,7 +183,6 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
 	  prod->push_back(newPFCand);
 	}
       }
-      
     }
     /*
       for(unsigned i=0;i<selComposites.size();i++){
@@ -202,12 +194,11 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
     
     // now loop over PF candidates and replace ones that are part of composites
     //for(reco::PFCandidateCollection::const_iterator ci  = pfCands->begin(); ci!=pfCands->end(); ++ci)  {        
-    for(PackedCandidateCollection::const_iterator ci  = pfCands->begin(); ci!=pfCands->end(); ++ci)  {      
+    //for(PackedCandidateCollection::const_iterator ci  = pfCands->begin(); ci!=pfCands->end(); ++ci)  {      
+    for( const auto& particle : *pfCands){
 
       bool writeCand = true;
       
-      //const reco::PFCandidate& particle = *ci;
-      const PackedCandidate& particle = *ci;
       if(std::abs(particle.pdgId())==1 || std::abs(particle.pdgId())==2) continue;
 
       //if(particle.trackRef().isNonnull()){
@@ -221,12 +212,8 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
 	double pfPhi = pfTrack->phi();
 	
 	
-	for(std::vector<CompositeCandidate>::const_iterator it=selComposites.begin();
-	    it!=selComposites.end(); ++it) {
-	  
-	  
-	  const CompositeCandidate cand = *it;
-	  
+	//for(std::vector<CompositeCandidate>::const_iterator it=selComposites.begin(); it!=selComposites.end(); ++it) {
+	for(const auto& cand : selComposites){
 	  double eps = 0.005;                                                                                                                                                   
 	  
 	  if(replaceDKPi_){
@@ -240,13 +227,12 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
 	    double dau2Phi = cand.daughter("track2")->phi();
 	    
 	    if((fabs(dau1Pt-pfPt) < eps && fabs(dau1Eta-pfEta) < eps  && fabs(dau1Phi-pfPhi) < eps) ||
-	       (fabs(dau2Pt-pfPt) < eps && fabs(dau2Eta-pfEta) < eps  && fabs(dau2Phi-pfPhi) < eps)) {
+	      (fabs(dau2Pt-pfPt) < eps && fabs(dau2Eta-pfEta) < eps  && fabs(dau2Phi-pfPhi) < eps)) {
 	      writeCand= false;                                                                                                                                                
 	      replacedCands++;                                                                                                                                                 
 	    }		
 	  }
-	  else if(replaceJMM_){
-	    
+	  else if(replaceOniaMM_){
 	    //cout << "Now checking candidate with pt = " << cand.pt() << endl;
 	    	    
 	    const Muon* muon1 = dynamic_cast<const Muon*>(cand.daughter("muon1"));
@@ -275,14 +261,13 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
 	  }
 	}
       
-	// if candidate survived J/Psi selection run some additional quality checks
-	if(replaceJMM_ && writeCand){
-	  // Muon outside-in tracks that are not part of the j/psi are duplicates
-	  if(pfTrack->originalAlgo()==14)  
-	    {	     
-	      writeCand= false;
-	      replacedCands++;
-	    }
+	// if candidate survived Onia selection run some additional quality checks
+	if(replaceOniaMM_ && writeCand){
+	  // Muon outside-in tracks that are not part of the Onia are duplicates
+	  if(pfTrack->originalAlgo()==14){	     
+	    writeCand= false;
+	    replacedCands++;
+	  }
 	  else if(pfTrack->algo()==13 || pfTrack->algo()==14){
 	    double dxySig = fabs(pfTrack->dxy());
 	    double dxyErr = pfTrack->dxyError();
@@ -301,7 +286,7 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
       }
       
       // Also remove some screwed up low quality muons that are artifcacts of the true onia pair
-      if(writeCand && replaceJMM_ && abs(particle.pdgId()) == 13 && particle.pt()>10.){	
+      if(writeCand && replaceOniaMM_ && abs(particle.pdgId()) == 13 && particle.pt()>10.){	
 	if(!particle.isGlobalMuon() || !particle.isTrackerMuon() || !particle.hasTrackDetails())
 	  {
 	    writeCand= false;
@@ -309,17 +294,8 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup)
 	  }             	
       }
       //cout<<" replacedCands = "<<replacedCands <<std::endl;
-      if(writeCand) prod->push_back(*ci);
+      if(writeCand) prod->push_back(particle);
     }
-    
-  }
-  //else std::cout<<" Creating empty FP cand list "<<std::endl;
-  //else prod->reserve(0);
-
-  //if(selComposites.size()>0) std::cout<<" # of selected composites "<<selComposites.size()<<" replaced candidates "<<replacedCands<<std::endl;
-  
-  //std::sort(prod->begin(),prod->end(),vPComparator_);
-  //iEvent.put(prod);
   iEvent.put(std::move(prod));
   
   
@@ -346,9 +322,9 @@ PFCandCompositeProducer::seld0Cand(const CompositeCandidate d0Cand){
 bool
 PFCandCompositeProducer::selJpsiCand(const CompositeCandidate jpsiCand){
   //std::cout<<" jpsi cand pt "<<jpsiCand.pt()<<" mass "<<jpsiCand.mass()<< " eta "<<jpsiCand.eta()<< " phi "<< jpsiCand.phi()<<std::endl;
-  if(jpsiCand.pt() < 3.) return false;
+  if(jpsiCand.pt() < 0.) return false;
   if(jpsiCand.mass() < 2.6) return false;
-  if(jpsiCand.mass() > 3.5) return false;
+  if(jpsiCand.mass() > 4.2) return false;
   if(jpsiCand.userFloat("vProb") < 0.01) return false; 
   if(fabs(jpsiCand.rapidity()) > 2.4) return false;
   if(fabs(jpsiCand.rapidity()) < 1.6 && jpsiCand.pt() < 6.) return false;

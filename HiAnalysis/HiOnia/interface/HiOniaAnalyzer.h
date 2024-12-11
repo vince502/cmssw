@@ -65,7 +65,8 @@
 // class declaration
 //
 
-class HiOniaAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources, edm::one::WatchRuns> {
+class HiOniaAnalyzer : public edm::one::EDAnalyzer<edm::one::WatchRuns> {
+// class HiOniaAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources, edm::one::WatchRuns> {
 public:
   explicit HiOniaAnalyzer(const edm::ParameterSet&);
   ~HiOniaAnalyzer() override;
