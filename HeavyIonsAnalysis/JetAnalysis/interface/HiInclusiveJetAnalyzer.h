@@ -164,9 +164,9 @@ private:
 
   edm::EDGetTokenT<reco::JetTagCollection> particleTransformerJetTagsTkn_,particleTransformerJetTagsBBTkn_,particleTransformerJetTagsLepBTkn_;
 
-  static const int MAXJETS = 1000;
+  static const int MAXJETS = 200;
   static const int MAXTRACKS = 5000;
-  static const int MAXCALO = 1000;
+  static const int MAXCALO = 200;
 
   struct JRA {
     int nref = 0;

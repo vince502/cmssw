@@ -16,6 +16,7 @@
 //#include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/PatCandidates/interface/CompositeCandidate.h"
+#include "DataFormats/Candidate/interface/CompositeCandidate.h"
 #include "DataFormats/Math/interface/deltaR.h"
 
 
@@ -42,12 +43,12 @@ class PFCandCompositeProducer : public edm::stream::EDProducer<> {
   
   // ----------member data ---------------------------
 
-  //  edm::EDGetTokenT<reco::PFCandidateCollection> pfCandToken_;
   edm::EDGetTokenT<pat::PackedCandidateCollection> pfCandToken_;
   edm::EDGetTokenT<pat::CompositeCandidateCollection> compositeToken_;
   std::string jpsiTriggFilter_;
   bool isHI_;
   bool replaceOniaMM_;
+  // bool replaceOniaMMTkTk_;
   double massOnia_;
   bool replaceDKPi_;
   
