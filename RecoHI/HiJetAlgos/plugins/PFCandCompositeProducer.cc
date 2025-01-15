@@ -128,7 +128,7 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup) {
     else if(replaceOniaMM_){
 	  // apply some selections on the j/psi candidates here
 	  // if( selJpsiCand(cand) && selMuonCand(cand,"muon1") && selMuonCand(cand,"muon2") ){
-	  if( selJpsiCand(cand)){ // Muon selection should be done in onia2MuMuProducer
+	  // if( selJpsiCand(cand)){ // Muon selection should be done in onia2MuMuProducer
 	    bool isDup = false;
 	    for(unsigned i=0;i<selComposites.size();i++){
 	      if(checkDupMuon(cand,selComposites[i])) {
@@ -149,7 +149,7 @@ PFCandCompositeProducer::produce(Event& iEvent, const EventSetup& iSetup) {
 	    //PackedCandidate(cand.polarP4(), vtx, ptTrk, etaAtVtx, phiAtVtx, cand.pdgId(), PVRefProd, PV.key()));
 
 	    prod->push_back(newPFCand);
-	    }
+	    // }
     }
   }
   int replacedCands = 0;
