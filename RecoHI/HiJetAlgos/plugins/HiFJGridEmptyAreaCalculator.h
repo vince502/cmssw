@@ -106,7 +106,7 @@ private:
 
   /// input tokens
   edm::EDGetTokenT<edm::View<reco::Jet>> jetsToken_;
-  edm::EDGetTokenT<reco::CandidateView> pfCandsToken_;
+  edm::EDGetTokenT<edm::View<reco::Candidate>> pfCandsToken_;
   edm::EDGetTokenT<std::vector<double>> mapEtaToken_;
   edm::EDGetTokenT<std::vector<double>> mapRhoToken_;
   edm::EDGetTokenT<std::vector<double>> mapRhoMToken_;

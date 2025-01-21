@@ -2,14 +2,13 @@ import FWCore.ParameterSet.Config as cms
 
 from RecoLocalCalo.CaloTowersCreator.calotowermaker_cfi import calotowermaker
 from RecoHI.HiJetAlgos.HiRecoJets_cff import akPu4CaloJets
-from JetMETCorrections.Configuration.DefaultJEC_cff import *
+from JetMETCorrections.Configuration.CorrectedJetProducersDefault_cff import ak4CaloJetsL2L3, ak4CaloL2L3Corrector, ak4CaloL2RelativeCorrector, ak4CaloL3AbsoluteCorrector
 
-
-hiCaloTowerForTrk = calotowermaker.clone(hbheInput=cms.InputTag('hbheprereco'))
-akPu4CaloJetsForTrk = akPu4CaloJets.clone( srcPVs = cms.InputTag('hiSelectedPixelVertex'), src= cms.InputTag('hiCaloTowerForTrk'))
+hiCaloTowerForTrk  = calotowermaker.clone( hbheInput = 'hbheprereco')
+akPu4CaloJetsForTrk = akPu4CaloJets.clone( srcPVs = 'hiSelectedPixelVertex', src = 'hiCaloTowerForTrk')
 
 akPu4CaloJetsCorrected  = ak4CaloJetsL2L3.clone(
-    src = cms.InputTag("akPu4CaloJetsForTrk")
+    src = "akPu4CaloJetsForTrk"
 )
 
 akPu4CaloJetsSelected = cms.EDFilter( "LargestEtCaloJetSelector",
@@ -18,4 +17,4 @@ akPu4CaloJetsSelected = cms.EDFilter( "LargestEtCaloJetSelector",
     maxNumber = cms.uint32( 4 )
 )
 
-hiCaloJetsForTrk = cms.Sequence(hiCaloTowerForTrk*akPu4CaloJetsForTrk*akPu4CaloJetsCorrected*akPu4CaloJetsSelected)
+hiCaloJetsForTrkTask = cms.Task(hiCaloTowerForTrk,akPu4CaloJetsForTrk,akPu4CaloJetsCorrected,akPu4CaloJetsSelected,ak4CaloL2L3Corrector,ak4CaloL2RelativeCorrector,ak4CaloL3AbsoluteCorrector)
