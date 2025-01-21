@@ -1024,6 +1024,10 @@ void HiOniaAnalyzer::InitEvent() {
     Gen_QQ_4mom_eta.clear();
     Gen_QQ_4mom_phi.clear();
     Gen_QQ_4mom_m.clear();
+    Gen_mu_4mom_pt.clear();
+    Gen_mu_4mom_eta.clear();
+    Gen_mu_4mom_phi.clear();
+    Gen_mu_4mom_m.clear();
     Gen_mu_4mom->Clear();
 
     Gen_QQ_size = 0;

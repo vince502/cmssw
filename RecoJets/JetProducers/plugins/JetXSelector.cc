@@ -81,8 +81,11 @@ public:
 	  //const reco::PFCandidate* daughter = dynamic_cast<const reco::PFCandidate*>(ijet->daughterPtr(ida).get());
 	  const pat::PackedCandidate* daughter = dynamic_cast<const pat::PackedCandidate*>(ijet->daughterPtr(ida).get());
 	  //reco::PFCandidate::ParticleType pfCandidateType = daughter->particleId();
-	  int pfCandidateType = daughter->pdgId();
-	  if(pfCandidateType == 1 )         {
+	  //int pfCandidateType = daughter->pdgId();
+	  float pfCandidateMass = daughter->mass();
+	  //if(pfCandidateType == 1 )         {
+	  // j/Psi or Psi(2S)
+	  if((pfCandidateMass > 3.096 && pfCandidateMass < 3.098) || (pfCandidateMass > 3.685&& pfCandidateMass < 3.687) ){
 	    //std::cout<<" hooray!  "<<daughter->pt()<<std::endl;                                                                                                                      
 	    isJetPlusX = true;
 	    break;
