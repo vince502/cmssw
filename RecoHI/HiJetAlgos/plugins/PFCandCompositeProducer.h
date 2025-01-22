@@ -48,7 +48,11 @@ private:
   bool isHI_;
   bool replaceOniaMM_;
   double massOnia_;
+  double massOnia2_ = 0.0;
   bool replaceDKPi_;
+  bool checkOnia_;
+  bool assignClosestOniaMass_ = false;
+  double cutMassOnia_ = 0.0;
 
   struct ComparePt {
     bool operator()(pat::CompositeCandidate t1,

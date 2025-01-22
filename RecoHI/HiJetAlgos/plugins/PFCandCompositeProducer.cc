@@ -19,6 +19,7 @@
 
 // system include files
 #include <memory>
+#include <cassert>
 
 // user include files
 #include "DataFormats/HcalDetId/interface/HcalDetId.h"
@@ -62,11 +63,17 @@ PFCandCompositeProducer::PFCandCompositeProducer(const ParameterSet &iConfig) {
   isHI_ = iConfig.getParameter<bool>("isHI");
   replaceOniaMM_ = iConfig.getParameter<bool>("replaceOniaMM");
   massOnia_ = iConfig.getParameter<double>("massOnia");
+  massOnia2_ = iConfig.getParameter<double>("massOnia2");
   replaceDKPi_ = iConfig.getParameter<bool>("replaceDKPi");
+  checkOnia_ = iConfig.getParameter<bool>("checkOnia");
+  assignClosestOniaMass_ = iConfig.getParameter<bool>("assignClosestOniaMass");
+  cutMassOnia_ = iConfig.getParameter<double>("cutMassOnia");
 
   // produces<reco::PFCandidateCollection>();
   produces<PackedCandidateCollection>();
-
+  if ( assignClosestOniaMass_ &&  (massOnia2_ < 0.1 || cutMassOnia_ < 0.1) ){
+    std::cout << " PFCandCompositeProducer is running with closest onia mass assign but massOnia2 "<<massOnia2_<<" or cutMassOnia "<< cutMassOnia_ <<" is not properly set " << std::endl;
+  }
   if (!replaceOniaMM_ && !replaceDKPi_)
     std::cout << " PFCandCompositeProducer ain't doing jack " << std::endl;
   if (replaceOniaMM_ && replaceDKPi_)
@@ -157,8 +164,11 @@ void PFCandCompositeProducer::produce(Event &iEvent, const EventSetup &iSetup) {
       }
     } else if (replaceOniaMM_) {
       // apply some selections on the j/psi candidates here
-      if (selJpsiCand(cand) && selMuonCand(cand, "muon1") &&
-          selMuonCand(cand, "muon2")) {
+      if (!checkOnia_ || 
+          (selJpsiCand(cand) && 
+            selMuonCand(cand, "muon1") &&
+            selMuonCand(cand, "muon2"))
+          ) {
 
         bool isDup = false;
         for (unsigned i = 0; i < selComposites.size(); i++) {
@@ -174,7 +184,8 @@ void PFCandCompositeProducer::produce(Event &iEvent, const EventSetup &iSetup) {
         // jet"<< std::endl; continue;}
         selComposites.push_back(cand);
 
-        double candE = sqrt(cand.p() * cand.p() + massOnia_ * massOnia_);
+        double m =  assignClosestOniaMass_ ? (cand.mass() > cutMassOnia_) ? massOnia2_ : massOnia_  : massOnia_ ;
+        double candE = sqrt(cand.p() * cand.p() + m * m);
         // reco::Particle::LorentzVector
         // p4(cand.px(),cand.py(),cand.pz(),candE);
         PackedCandidate::LorentzVector p4(cand.px(), cand.py(), cand.pz(),

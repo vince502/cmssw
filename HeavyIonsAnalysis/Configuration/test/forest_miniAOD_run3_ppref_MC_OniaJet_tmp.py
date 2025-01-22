@@ -148,7 +148,7 @@ from HiAnalysis.HiOnia.oniaTreeAnalyzer_cff import oniaTreeAnalyzer
 oniaTreeAnalyzer(process,
                  muonTriggerList= triggerList,
                  HLTProName="HLT",
-                 muonSelection="Trk", 
+                 muonSelection="GlbOrTrk", 
                  L1Stage=2, 
                  isMC=True, 
                  pdgID=100443, 
@@ -161,8 +161,37 @@ oniaTreeAnalyzer(process,
 # process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string("(2.6 < mass && mass < 4.0) && charge == 0 && pt > 0")
 
 # new in config
-process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string("(2.5 < mass && mass < 5.0) && charge == 0 && pt > 4.0 && abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25 && daughter('muon1').isPFMuon() && daughter('muon2').isPFMuon()")
+process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string(
+    "(2.6 < mass && mass < 4.2) && \
+    charge == 0 && pt > 6.0 && \
+    abs(rapidity ) < 2.4 && \
+    daughter('muon1').muonID('TMOneStationTight') && \
+    daughter('muon2').muonID('TMOneStationTight') && \
+    abs(daughter('muon1').innerTrack.hitPattern().trackerLayersWithMeasurement())  > 5 && \
+    abs(daughter('muon2').innerTrack.hitPattern().trackerLayersWithMeasurement())  > 5 && \
+    abs(daughter('muon1').innerTrack.hitPattern().pixelLayersWithMeasurement())  > 0 && \
+    abs(daughter('muon2').innerTrack.hitPattern().pixelLayersWithMeasurement())  > 0 && \
+    abs(daughter('muon1').innerTrack.dz) < 20.0 && \
+    abs(daughter('muon2').innerTrack.dz) < 20.0 && \
+    abs(daughter('muon1').innerTrack.dxy) < 0.3 && \
+    abs(daughter('muon2').innerTrack.dxy) < 0.3 && \
+    daughter('muon1').isPFMuon() && \
+    daughter('muon2').isPFMuon() \
+    "
+)
+'''
+'''
+
 process.onia2MuMuPatGlbGlb.LateDimuonSel         = cms.string("userFloat(\"vProb\")>0.01")
+
+process.selectedPatMuons = cms.EDFilter("PATCompositeCandidateSelector",
+    src = cms.InputTag("onia2MuMuPatGlbGlb"),
+    # cut = cms.string(" daughter('muon1').isSoftMuon(userData('PVwithmuons')) && daughter('muon2').isSoftMuon(userData('PVwithmuons'))"
+    cut = cms.string(""
+    )
+)
+
+# process.hionia.srcDimuon = cms.InputTag("selectedPatMuons")
 
 process.hionia.primaryVertexTag = "unpackedTracksAndVertices"
 process.hionia.CentralitySrc    = cms.InputTag("hiCentrality")
@@ -191,10 +220,15 @@ process.load("RecoHI.HiJetAlgos.PFCandCompositeProducer_cfi")
 #process.pfCandComposites.pfCandTag    = cms.InputTag('particleFlowNoHF')
 process.pfCandComposites.pfCandTag    = cms.InputTag('packedPFCandidates')
 process.pfCandComposites.replaceOniaMM = True
+process.pfCandComposites.checkOnia = False # already cut string selector applied
+
+process.pfCandComposites.assignClosestOniaMass = True # need to assign value
+process.pfCandComposites.cutMassOnia = 3.4 
 
 process.pfCandComposites.massOnia = 3.096916 # J/Psi  
-#process.pfCandComposites.massOnia = 3.686097 # psi(2S)
+process.pfCandComposites.massOnia2 = 3.686097 # psi(2S) #Used only when assignClosestOniaMass is on
 process.pfCandComposites.compositeTag = cms.InputTag("onia2MuMuPatGlbGlb")
+# process.pfCandComposites.compositeTag = cms.InputTag("selectedPatMuons")
 process.onia2MuMuPatGlbGlb.addMuonlessPrimaryVertex = False
 
 from HeavyIonsAnalysis.JetAnalysis.clusterJetsFromMiniAOD_cff import setupPprefJets
@@ -299,7 +333,7 @@ if doBtagging:
 process.forest += getattr(process,"ak"+jetLabel+"PFJetAnalyzer")
 
 
-process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.hionia + process.pfCandComposites)
+process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.selectedPatMuons + process.hionia + process.pfCandComposites)
 
 # process.Onia2MuMuPAT.remove(process.patTriggerAll)
 # process.forest.remove(process.patTriggerAll)
@@ -309,7 +343,7 @@ process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlb
 # process.schedule = cms.Schedule( process.jpsiJetsPath)
 process.schedule = cms.Schedule( process.jpsiJetsPath, process.forest)
 
-process.options.numberOfThreads = 10
+process.options.numberOfThreads = 1
 process.options.numberOfConcurrentLuminosityBlocks = 1
 process.options.numberOfStreams = 0
 
@@ -376,3 +410,18 @@ process.ottana_new.doJetConstituentCompare = cms.untracked.bool(False)
 
 process.ottstep = cms.Path(process.generalOttCandidatesNew * process.ottana_new )
 process.schedule.append(process.ottstep)
+
+# # edm output for debugging purposes
+process.output = cms.OutputModule(
+    "PoolOutputModule",
+    fileName = cms.untracked.string('HiForestEDM.root'),
+    outputCommands = cms.untracked.vstring(
+        # 'keep *',
+        'drop *',
+        'keep *_selectedPatMuons_*_*',
+        'keep *_ak4PFXpatJets_*_*',
+        )
+    )
+
+process.output_path = cms.EndPath(process.output)
+# process.schedule.append(process.output_path)
