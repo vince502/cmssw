@@ -36,14 +36,14 @@ else:
 process.source = cms.Source("PoolSource",
                             duplicateCheckMode = cms.untracked.string("noDuplicateCheck"),
                             fileNames = cms.untracked.vstring(
-                                'file:/afs/cern.ch/work/s/soohwan/private/Analysis/General2024Analysis/TEST_CMSSW_14_1_5/CMSSW_14_1_5/src/HeavyIonsAnalysis/Configuration/test/step3_JpsiShower_1.root'
-                                #'/store/group/phys_heavyions/soohwan/Analysis/oniajet_run3/ppRef/step3_JpsiShower_1.root'
+                                #'file:/afs/cern.ch/work/s/soohwan/private/Analysis/General2024Analysis/TEST_CMSSW_14_1_5/CMSSW_14_1_5/src/HeavyIonsAnalysis/Configuration/test/step3_JpsiShower_1.root'
+                                '/store/group/phys_heavyions/soohwan/Analysis/oniajet_run3/ppRef/step3_JpsiShower_1.root'
                             )
                         )
 
 # Number of events we want to process, -1 = all events
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(-1)
+    input = cms.untracked.int32(10000)
 )
 
 #####################################################################################
@@ -148,7 +148,7 @@ from HiAnalysis.HiOnia.oniaTreeAnalyzer_cff import oniaTreeAnalyzer
 oniaTreeAnalyzer(process,
                  muonTriggerList= triggerList,
                  HLTProName="HLT",
-                 muonSelection="Trk", 
+                 muonSelection="GlbOrTrk", 
                  L1Stage=2, 
                  isMC=True, 
                  pdgID=100443, 
@@ -157,7 +157,42 @@ oniaTreeAnalyzer(process,
                  OnlySingleMuons=False
 )
 
-process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string("(2.6 < mass && mass < 4.0) && charge == 0 && pt > 0")
+# was in config
+# process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string("(2.6 < mass && mass < 4.0) && charge == 0 && pt > 0")
+
+# new in config
+process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string(
+    "(2.6 < mass && mass < 4.2) && \
+    charge == 0 && pt > 6.0 && \
+    abs(rapidity ) < 2.4 && \
+    daughter('muon1').muonID('TMOneStationTight') && \
+    daughter('muon2').muonID('TMOneStationTight') && \
+    abs(daughter('muon1').innerTrack.hitPattern().trackerLayersWithMeasurement())  > 5 && \
+    abs(daughter('muon2').innerTrack.hitPattern().trackerLayersWithMeasurement())  > 5 && \
+    abs(daughter('muon1').innerTrack.hitPattern().pixelLayersWithMeasurement())  > 0 && \
+    abs(daughter('muon2').innerTrack.hitPattern().pixelLayersWithMeasurement())  > 0 && \
+    abs(daughter('muon1').innerTrack.dz) < 20.0 && \
+    abs(daughter('muon2').innerTrack.dz) < 20.0 && \
+    abs(daughter('muon1').innerTrack.dxy) < 0.3 && \
+    abs(daughter('muon2').innerTrack.dxy) < 0.3 && \
+    daughter('muon1').isPFMuon() && \
+    daughter('muon2').isPFMuon() \
+    "
+)
+'''
+'''
+
+process.onia2MuMuPatGlbGlb.LateDimuonSel         = cms.string("userFloat(\"vProb\")>0.01")
+
+process.selectedPatMuons = cms.EDFilter("PATCompositeCandidateSelector",
+    src = cms.InputTag("onia2MuMuPatGlbGlb"),
+    # cut = cms.string(" daughter('muon1').isSoftMuon(userData('PVwithmuons')) && daughter('muon2').isSoftMuon(userData('PVwithmuons'))"
+    cut = cms.string(""
+    )
+)
+
+# process.hionia.srcDimuon = cms.InputTag("selectedPatMuons")
+
 process.hionia.primaryVertexTag = "unpackedTracksAndVertices"
 process.hionia.CentralitySrc    = cms.InputTag("hiCentrality")
 process.hionia.CentralityBinSrc = cms.InputTag("centralityBin","HFtowers")
@@ -185,10 +220,15 @@ process.load("RecoHI.HiJetAlgos.PFCandCompositeProducer_cfi")
 #process.pfCandComposites.pfCandTag    = cms.InputTag('particleFlowNoHF')
 process.pfCandComposites.pfCandTag    = cms.InputTag('packedPFCandidates')
 process.pfCandComposites.replaceOniaMM = True
+process.pfCandComposites.checkOnia = False # already cut string selector applied
+
+process.pfCandComposites.assignClosestOniaMass = True # need to assign value
+process.pfCandComposites.cutMassOnia = 3.4 
 
 process.pfCandComposites.massOnia = 3.096916 # J/Psi  
-#process.pfCandComposites.massOnia = 3.686097 # psi(2S)
+process.pfCandComposites.massOnia2 = 3.686097 # psi(2S) #Used only when assignClosestOniaMass is on
 process.pfCandComposites.compositeTag = cms.InputTag("onia2MuMuPatGlbGlb")
+# process.pfCandComposites.compositeTag = cms.InputTag("selectedPatMuons")
 process.onia2MuMuPatGlbGlb.addMuonlessPrimaryVertex = False
 
 from HeavyIonsAnalysis.JetAnalysis.clusterJetsFromMiniAOD_cff import setupPprefJets
@@ -263,8 +303,13 @@ from HeavyIonsAnalysis.JetAnalysis.setupJets_ppRef_cff import candidateBtaggingM
 candidateBtaggingMiniAOD(process, isMC = True, jetPtMin = jetPtMin, jetCorrLevels = ['L2Relative', 'L3Absolute'], doBtagging = doBtagging, labelR = jetLabel)
 
 #filter out onia jets
-process.load("RecoJets.JetProducers.pfXpatJets_cfi")
-setattr(process,"ak"+jetLabel+"PFXpatJets",process.pfXpatJets.clone(src="selectedUpdatedPatJetsAK"+jetLabel+"PFCHSDeepFlavour"))
+# process.load("RecoJets.JetProducers.pfXpatJets_cfi")
+# setattr(process,"ak"+jetLabel+"PFXpatJets",process.pfXpatJets.clone(src="selectedUpdatedPatJetsAK"+jetLabel+"PFCHSDeepFlavour"))
+# TMP CHECK
+process.ak4PFXpatJets = cms.EDFilter("PatJetXSelector",
+                                     src = cms.InputTag("selectedUpdatedPatJetsAK4PFCHSDeepFlavour"),
+                                     cut = cms.string("pt > 0.0 && abs(rapidity()) < 3.")
+                                     )
 process.forest += getattr(process,"ak"+jetLabel+"PFXpatJets")
 #hack for low pt jets.  Should be moved to setup ppref
 getattr(process,"patJetGenJetMatchAK"+jetLabel+"PFCHS").maxDeltaR = 0.8
@@ -288,15 +333,95 @@ if doBtagging:
 process.forest += getattr(process,"ak"+jetLabel+"PFJetAnalyzer")
 
 
-process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.hionia + process.pfCandComposites)
+process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.selectedPatMuons + process.hionia + process.pfCandComposites)
 
 # process.Onia2MuMuPAT.remove(process.patTriggerAll)
 # process.forest.remove(process.patTriggerAll)
 
 
 #process.schedule = cms.Schedule( process.forest, process.jpsiJetsPath)
-#process.schedule = cms.Schedule( process.jpsiJetsPath)
+# process.schedule = cms.Schedule( process.jpsiJetsPath)
 process.schedule = cms.Schedule( process.jpsiJetsPath, process.forest)
 
 process.options.numberOfThreads = 1
+process.options.numberOfConcurrentLuminosityBlocks = 1
 process.options.numberOfStreams = 0
+
+
+### Onia trk trk analysis part
+
+process.load("VertexCompositeAnalysis.VertexCompositeProducer.generalOttCandidates_cff")
+process.generalOttCandidatesNew = process.generalOttCandidates.clone()
+process.generalOttCandidatesNew.dimuons = cms.InputTag('onia2MuMuPatGlbGlb')
+process.generalOttCandidatesNew.vertexRecoAlgorithm = cms.InputTag('unpackedTracksAndVertices')
+process.generalOttCandidatesNew.trackRecoAlgorithm = cms.InputTag('unpackedTracksAndVertices')
+
+#process.generalOttCandidatesNew.vertexRecoAlgorithm = cms.InputTag('offlineSlimmedPrimaryVertices')
+process.generalOttCandidatesNew.usePixelTracks = cms.bool(False)
+process.generalOttCandidatesNew.pixelTracks = cms.InputTag('unpackedPixelTracks')
+
+
+process.generalOttCandidatesNew.batTrkPtSumCut = cms.double(0.0)
+process.generalOttCandidatesNew.batTrkEtaDiffCut = cms.double(100.0)
+process.generalOttCandidatesNew.batTkChi2Cut = cms.double(10000)
+process.generalOttCandidatesNew.batTkNhitsCut = cms.int32(0)
+process.generalOttCandidatesNew.batTkPtErrCut = cms.double(0.10)
+process.generalOttCandidatesNew.batTkPtCut = cms.double(0.10)
+process.generalOttCandidatesNew.alphaCut = cms.double(999.0)
+process.generalOttCandidatesNew.alpha2DCut = cms.double(999.0)
+process.generalOttCandidatesNew.bPtCut = cms.double(4)
+process.generalOttCandidatesNew.bVtxChiProbCut = cms.double(0.005)
+process.generalOttCandidatesNew.mPiKCutMin = cms.double(0.0)
+process.generalOttCandidatesNew.mPiKCutMax = cms.double(40.0)
+process.generalOttCandidatesNew.bMassCut = cms.double(7)
+process.generalOttCandidatesNew.bQMassCut = cms.double(333)
+process.generalOttCandidatesNew.bOniaWindow = cms.vdouble(5.2, 0.2, 0.4, 0.4)
+process.generalOttCandidatesNew.trk1cosPhiCut = cms.double(0.0)
+process.generalOttCandidatesNew.trk2cosPhiCut = cms.double(0.0)
+process.generalOttCandidatesNew.trk12cosPhiCut = cms.double(0.0)
+process.generalOttCandidatesNew.trk1dRCut = cms.double(99.0)
+process.generalOttCandidatesNew.trk2dRCut = cms.double(99.0)
+process.generalOttCandidatesNew.trk12dRCut = cms.double(99.0)
+process.generalOttCandidatesNew.oniapTCut = cms.double(0.0)
+process.generalOttCandidatesNew.trk1pTCut = cms.double(0.1)
+process.generalOttCandidatesNew.trk2pTCut = cms.double(0.1)
+
+process.load("VertexCompositeAnalysis.VertexCompositeAnalyzer.ottanalyzer_tree_cff")
+process.ottana_new = process.ottana_mc.clone()
+process.ottana_new.VertexCollection = cms.untracked.InputTag('unpackedTracksAndVertices')
+process.ottana_new.TrackCollection = cms.untracked.InputTag('unpackedTracksAndVertices')
+process.ottana_new.doGenNtuple = False
+process.ottana_new.doRecoNtuple = True
+process.ottana_new.PID = 100443
+
+process.ottana_new.threeProngDecay = True 
+process.ottana_new.balancedTree = False 
+process.ottana_new.PID_dau1 = 443
+#process.ottana_new.PID_dau2 = 113
+process.ottana_new.PID_dau2 = -211
+process.ottana_new.PID_dau3 = 211
+
+process.ottana_new.doJetConstituentCompare = cms.untracked.bool(True)
+process.ottana_new.jetCompareOnlyNonMuons = cms.untracked.bool(True)
+process.ottana_new.jetInclDimuon = cms.untracked.bool(True)
+process.ottana_new.jetNames = cms.vstring("ak4PFXpatJets")
+
+process.ottana_new.doJetConstituentCompare = cms.untracked.bool(False)
+
+process.ottstep = cms.Path(process.generalOttCandidatesNew * process.ottana_new )
+process.schedule.append(process.ottstep)
+
+# # edm output for debugging purposes
+process.output = cms.OutputModule(
+    "PoolOutputModule",
+    fileName = cms.untracked.string('HiForestEDM.root'),
+    outputCommands = cms.untracked.vstring(
+        # 'keep *',
+        'drop *',
+        'keep *_selectedPatMuons_*_*',
+        'keep *_ak4PFXpatJets_*_*',
+        )
+    )
+
+process.output_path = cms.EndPath(process.output)
+# process.schedule.append(process.output_path)

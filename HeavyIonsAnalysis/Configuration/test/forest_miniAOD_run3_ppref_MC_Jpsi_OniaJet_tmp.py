@@ -151,7 +151,7 @@ oniaTreeAnalyzer(process,
                  muonSelection="GlbOrTrk", 
                  L1Stage=2, 
                  isMC=True, 
-                 pdgID=100443, 
+                 pdgID=443, 
                  outputFileName= "", 
                  doTrimu=False,
                  OnlySingleMuons=False
@@ -314,6 +314,8 @@ process.forest += getattr(process,"ak"+jetLabel+"PFXpatJets")
 #hack for low pt jets.  Should be moved to setup ppref
 getattr(process,"patJetGenJetMatchAK"+jetLabel+"PFCHS").maxDeltaR = 0.8
 
+
+getattr(process,"ak"+jetLabel+"GenJetsWithNu").src = "packedGenParticlesForJetsNoNu"
 # setup jet analyzer                                                                                                                                    
 setattr(process,"ak"+jetLabel+"PFJetAnalyzer",process.ak4PFJetAnalyzer.clone())
 getattr(process,"ak"+jetLabel+"PFJetAnalyzer").jetTag = 'ak4PFXpatJets'
@@ -420,8 +422,12 @@ process.output = cms.OutputModule(
         'drop *',
         'keep *_selectedPatMuons_*_*',
         'keep *_ak4PFXpatJets_*_*',
+        'keep *_selectedUpdatedPatJetsAK4PFCHSDeepFlavour_*_*',
+        'keep *_ak4GenJetsRecluster_*_*',
+        'keep *_patJetsAK4PFUnsubJets_*_*',
+        'keep *_ak4GenJetsWithNu_*_*',
         )
     )
 
 process.output_path = cms.EndPath(process.output)
-# process.schedule.append(process.output_path)
+process.schedule.append(process.output_path)

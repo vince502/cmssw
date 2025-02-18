@@ -4,14 +4,14 @@ config = Configuration()
 
 config.section_('General')
 #config.General.requestName = 'Psi2SJet_VertexCompsoite_MCOniaShowerPrivate_ppref_22Jan_v1'
-config.General.requestName = 'Psi1SJet_VertexCompsoite_MCOniaPrivate_ppref_16Jan_v2'
+config.General.requestName = 'Psi1SJet_VertexCompsoite_MCOniaPrivate_ppref_17Feb_v1'
 config.General.workArea = 'crab_project'
 config.General.transferOutputs = True
 config.General.transferLogs = False
 
 config.section_('JobType')
 config.JobType.pluginName = 'Analysis'
-config.JobType.psetName = 'forest_miniAOD_run3_ppref_MC_OniaJet_tmp.py'
+config.JobType.psetName = 'forest_miniAOD_run3_ppref_MC_Jpsi_OniaJet_tmp.py'
 config.JobType.maxMemoryMB = 4000
 config.JobType.numCores = 1
 
