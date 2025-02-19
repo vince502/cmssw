@@ -36,14 +36,16 @@ else:
 process.source = cms.Source("PoolSource",
                             duplicateCheckMode = cms.untracked.string("noDuplicateCheck"),
                             fileNames = cms.untracked.vstring(
-                                #'file:/afs/cern.ch/work/s/soohwan/private/Analysis/General2024Analysis/TEST_CMSSW_14_1_5/CMSSW_14_1_5/src/HeavyIonsAnalysis/Configuration/test/step3_JpsiShower_1.root'
-                                '/store/group/phys_heavyions/soohwan/Analysis/oniajet_run3/ppRef/step3_JpsiShower_1.root'
+                                'file:/afs/cern.ch/work/s/soohwan/private/Analysis/General2024Analysis/TEST_CMSSW_14_1_5/CMSSW_14_1_5/src/HeavyIonsAnalysis/Configuration/test/step3_JpsiShower_1.root'
+                                # '/store/group/phys_heavyions/soohwan/Analysis/oniajet_run3/ppRef/step3_JpsiShower_1.root'
+                                #'/store/user/soohwan/Run3_2024/MC/PAT_MC_PythiaJPsi_CMSW_14_1_6_16Dec2024_v2_FixHLT_t2/Jpsi_PythiaCP5_Noemb_ppRef5p36_13Dec_v1/PAT_MC_PythiaJPsi_CMSW_14_1_6_16Dec2024_v2_FixHLT_t2/241216_023840/0000/Jpsi_RECO_1.root'
+                                #'/store/user/bputra/JPsi_OniaShower_PythiaOnly_08Nov_v1/PPRef_JPsiToMuMuOniaShower_pTHat10_CMSSW_141X_mcRun3_2024_realistic_ppRef5TeV_v7_20250216_RECOPAT/250216_122723/0000/PPRef_JPsiToMuMuOniaShower_pTHat10_RECO_1.root'
                             )
                         )
 
 # Number of events we want to process, -1 = all events
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(10000)
+    input = cms.untracked.int32(20000)
 )
 
 #####################################################################################
@@ -315,7 +317,7 @@ process.forest += getattr(process,"ak"+jetLabel+"PFXpatJets")
 getattr(process,"patJetGenJetMatchAK"+jetLabel+"PFCHS").maxDeltaR = 0.8
 
 
-getattr(process,"ak"+jetLabel+"GenJetsWithNu").src = "packedGenParticlesForJetsNoNu"
+#getattr(process,"ak"+jetLabel+"GenJetsWithNu").src = "packedGenParticlesForJetsNoNu"
 # setup jet analyzer                                                                                                                                    
 setattr(process,"ak"+jetLabel+"PFJetAnalyzer",process.ak4PFJetAnalyzer.clone())
 getattr(process,"ak"+jetLabel+"PFJetAnalyzer").jetTag = 'ak4PFXpatJets'
@@ -349,70 +351,6 @@ process.options.numberOfThreads = 1
 process.options.numberOfConcurrentLuminosityBlocks = 1
 process.options.numberOfStreams = 0
 
-
-### Onia trk trk analysis part
-
-process.load("VertexCompositeAnalysis.VertexCompositeProducer.generalOttCandidates_cff")
-process.generalOttCandidatesNew = process.generalOttCandidates.clone()
-process.generalOttCandidatesNew.dimuons = cms.InputTag('onia2MuMuPatGlbGlb')
-process.generalOttCandidatesNew.vertexRecoAlgorithm = cms.InputTag('unpackedTracksAndVertices')
-process.generalOttCandidatesNew.trackRecoAlgorithm = cms.InputTag('unpackedTracksAndVertices')
-
-#process.generalOttCandidatesNew.vertexRecoAlgorithm = cms.InputTag('offlineSlimmedPrimaryVertices')
-process.generalOttCandidatesNew.usePixelTracks = cms.bool(False)
-process.generalOttCandidatesNew.pixelTracks = cms.InputTag('unpackedPixelTracks')
-
-
-process.generalOttCandidatesNew.batTrkPtSumCut = cms.double(0.0)
-process.generalOttCandidatesNew.batTrkEtaDiffCut = cms.double(100.0)
-process.generalOttCandidatesNew.batTkChi2Cut = cms.double(10000)
-process.generalOttCandidatesNew.batTkNhitsCut = cms.int32(0)
-process.generalOttCandidatesNew.batTkPtErrCut = cms.double(0.10)
-process.generalOttCandidatesNew.batTkPtCut = cms.double(0.10)
-process.generalOttCandidatesNew.alphaCut = cms.double(999.0)
-process.generalOttCandidatesNew.alpha2DCut = cms.double(999.0)
-process.generalOttCandidatesNew.bPtCut = cms.double(4)
-process.generalOttCandidatesNew.bVtxChiProbCut = cms.double(0.005)
-process.generalOttCandidatesNew.mPiKCutMin = cms.double(0.0)
-process.generalOttCandidatesNew.mPiKCutMax = cms.double(40.0)
-process.generalOttCandidatesNew.bMassCut = cms.double(7)
-process.generalOttCandidatesNew.bQMassCut = cms.double(333)
-process.generalOttCandidatesNew.bOniaWindow = cms.vdouble(5.2, 0.2, 0.4, 0.4)
-process.generalOttCandidatesNew.trk1cosPhiCut = cms.double(0.0)
-process.generalOttCandidatesNew.trk2cosPhiCut = cms.double(0.0)
-process.generalOttCandidatesNew.trk12cosPhiCut = cms.double(0.0)
-process.generalOttCandidatesNew.trk1dRCut = cms.double(99.0)
-process.generalOttCandidatesNew.trk2dRCut = cms.double(99.0)
-process.generalOttCandidatesNew.trk12dRCut = cms.double(99.0)
-process.generalOttCandidatesNew.oniapTCut = cms.double(0.0)
-process.generalOttCandidatesNew.trk1pTCut = cms.double(0.1)
-process.generalOttCandidatesNew.trk2pTCut = cms.double(0.1)
-
-process.load("VertexCompositeAnalysis.VertexCompositeAnalyzer.ottanalyzer_tree_cff")
-process.ottana_new = process.ottana_mc.clone()
-process.ottana_new.VertexCollection = cms.untracked.InputTag('unpackedTracksAndVertices')
-process.ottana_new.TrackCollection = cms.untracked.InputTag('unpackedTracksAndVertices')
-process.ottana_new.doGenNtuple = False
-process.ottana_new.doRecoNtuple = True
-process.ottana_new.PID = 100443
-
-process.ottana_new.threeProngDecay = True 
-process.ottana_new.balancedTree = False 
-process.ottana_new.PID_dau1 = 443
-#process.ottana_new.PID_dau2 = 113
-process.ottana_new.PID_dau2 = -211
-process.ottana_new.PID_dau3 = 211
-
-process.ottana_new.doJetConstituentCompare = cms.untracked.bool(True)
-process.ottana_new.jetCompareOnlyNonMuons = cms.untracked.bool(True)
-process.ottana_new.jetInclDimuon = cms.untracked.bool(True)
-process.ottana_new.jetNames = cms.vstring("ak4PFXpatJets")
-
-process.ottana_new.doJetConstituentCompare = cms.untracked.bool(False)
-
-process.ottstep = cms.Path(process.generalOttCandidatesNew * process.ottana_new )
-process.schedule.append(process.ottstep)
-
 # # edm output for debugging purposes
 process.output = cms.OutputModule(
     "PoolOutputModule",
@@ -430,4 +368,4 @@ process.output = cms.OutputModule(
     )
 
 process.output_path = cms.EndPath(process.output)
-process.schedule.append(process.output_path)
+# process.schedule.append(process.output_path)
