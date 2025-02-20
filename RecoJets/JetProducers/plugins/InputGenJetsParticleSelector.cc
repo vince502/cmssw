@@ -228,14 +228,17 @@ bool InputGenJetsParticleSelector::isJMM(const reco::Candidate *particle) const
 // In principle we should also be removing radiative photons
 bool InputGenJetsParticleSelector::isFromJMM(const reco::Candidate *particle) const
 {
-  if(abs(particle->pdgId())!=13) return false;
+  // particle with mother 0 as Jpsi is 22 (gamma)?
+  // if(abs(particle->mother(0)->pdgId()==443)) std::cout << abs(particle->pdgId()) << std::endl;
+  // if(abs(particle->pdgId())!=13) return false;
   if(particle->numberOfMothers()==0) return false;
-  //cout<<"mother nDaug "<<particle->mother(0)->numberOfDaughters()<<endl;                                                                                                                                           
-  //cout<<" mom pdg "<<particle->mother(0)->pdgId()<<endl;                                                                                                                                                           
-  //if(nMom!=1) return false;                                                                                                                                                                                        
-  //if(particle->mother(0)->numberOfDaughters()!=2) return false;                                                                                                                                                    
+  //cout<<"mother nDaug "<<particle->mother(0)->numberOfDaughters()<<endl;
+  //cout<<" mom pdg "<<particle->mother(0)->pdgId()<<endl;
+  //if(nMom!=1) return false;
+  //if(particle->mother(0)->numberOfDaughters()!=2) return false;
   if(abs(particle->mother(0)->pdgId())==443){
     //cout<<" found a muon from j/psi "<<endl;                                                                                                                                                                       
+    // std::cout << "passing : " <<  abs(particle->pdgId()) << std::endl;
     return true;
   }
   else return isFromJMM(particle->mother(0));

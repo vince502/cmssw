@@ -36,10 +36,10 @@ else:
 process.source = cms.Source("PoolSource",
                             duplicateCheckMode = cms.untracked.string("noDuplicateCheck"),
                             fileNames = cms.untracked.vstring(
-                                'file:/afs/cern.ch/work/s/soohwan/private/Analysis/General2024Analysis/TEST_CMSSW_14_1_5/CMSSW_14_1_5/src/HeavyIonsAnalysis/Configuration/test/step3_JpsiShower_1.root'
+                                # 'file:/afs/cern.ch/work/s/soohwan/private/Analysis/General2024Analysis/TEST_CMSSW_14_1_5/CMSSW_14_1_5/src/HeavyIonsAnalysis/Configuration/test/step3_JpsiShower_1.root'
                                 # '/store/group/phys_heavyions/soohwan/Analysis/oniajet_run3/ppRef/step3_JpsiShower_1.root'
                                 #'/store/user/soohwan/Run3_2024/MC/PAT_MC_PythiaJPsi_CMSW_14_1_6_16Dec2024_v2_FixHLT_t2/Jpsi_PythiaCP5_Noemb_ppRef5p36_13Dec_v1/PAT_MC_PythiaJPsi_CMSW_14_1_6_16Dec2024_v2_FixHLT_t2/241216_023840/0000/Jpsi_RECO_1.root'
-                                #'/store/user/bputra/JPsi_OniaShower_PythiaOnly_08Nov_v1/PPRef_JPsiToMuMuOniaShower_pTHat10_CMSSW_141X_mcRun3_2024_realistic_ppRef5TeV_v7_20250216_RECOPAT/250216_122723/0000/PPRef_JPsiToMuMuOniaShower_pTHat10_RECO_1.root'
+                                '/store/user/bputra/JPsi_OniaShower_PythiaOnly_08Nov_v1/PPRef_JPsiToMuMuOniaShower_pTHat10_CMSSW_141X_mcRun3_2024_realistic_ppRef5TeV_v7_20250216_RECOPAT/250216_122723/0000/PPRef_JPsiToMuMuOniaShower_pTHat10_RECO_1.root'
                             )
                         )
 
@@ -265,6 +265,7 @@ from RecoJets.Configuration.GenJetParticles_cff import genParticlesForJets
 process.packedGenParticlesForJetsNoNu = genParticlesForJets.clone(src = 'mergedGenParticles')
 process.packedGenParticlesForJetsNoNu.ignoreParticleIDs += [12,14,16]  # no neutrinos
 process.packedGenParticlesForJetsNoNu.storeJMM = cms.untracked.bool(True)
+# process.packedGenParticlesForJetsNoNu.storeJMM = cms.untracked.bool(False)
 
 #########################
 # Main analysis list
@@ -317,7 +318,7 @@ process.forest += getattr(process,"ak"+jetLabel+"PFXpatJets")
 getattr(process,"patJetGenJetMatchAK"+jetLabel+"PFCHS").maxDeltaR = 0.8
 
 
-#getattr(process,"ak"+jetLabel+"GenJetsWithNu").src = "packedGenParticlesForJetsNoNu"
+# getattr(process,"ak"+jetLabel+"GenJetsWithNu").src = "packedGenParticlesForJetsNoNu"
 # setup jet analyzer                                                                                                                                    
 setattr(process,"ak"+jetLabel+"PFJetAnalyzer",process.ak4PFJetAnalyzer.clone())
 getattr(process,"ak"+jetLabel+"PFJetAnalyzer").jetTag = 'ak4PFXpatJets'
@@ -330,7 +331,8 @@ getattr(process,"ak"+jetLabel+"PFJetAnalyzer").jetPtMin = jetPtMin
 getattr(process,"ak"+jetLabel+"PFJetAnalyzer").jetAbsEtaMax = cms.untracked.double(jetAbsEtaMax)
 getattr(process,"ak"+jetLabel+"PFJetAnalyzer").rParam = int(jetLabel)*0.1
 #getattr(process,"ak"+jetLabel+"PFJetAnalyzer").jetFlavourInfos = "ak"+jetLabel+"PFFlavourInfos"
-if jetLabel!="0": getattr(process,"ak"+jetLabel+"PFJetAnalyzer").genjetTag = "ak"+jetLabel+"GenJetsWithNu"
+# if jetLabel!="0": getattr(process,"ak"+jetLabel+"PFJetAnalyzer").genjetTag = "ak"+jetLabel+"GenJetsWithNu"
+if jetLabel!="0": getattr(process,"ak"+jetLabel+"PFJetAnalyzer").genjetTag = "ak"+jetLabel+"GenJetsRecluster"
 if doBtagging:
     getattr(process,"ak"+jetLabel+"PFJetAnalyzer").pfJetProbabilityBJetTag = cms.untracked.string("pfJetProbabilityBJetTagsDeepFlavour")
     getattr(process,"ak"+jetLabel+"PFJetAnalyzer").pfUnifiedParticleTransformerAK4JetTags = cms.untracked.string("pfUnifiedParticleTransformerAK4JetTagsDeepFlavour")
