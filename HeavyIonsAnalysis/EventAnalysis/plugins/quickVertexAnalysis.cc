@@ -103,6 +103,8 @@ void quickVertexAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetu
   edm::Handle<std::vector<reco::Vertex>> recoV;
 
   std::string verb_z = "";
+  std::vector<float> hepz = {};
+  std::vector<float> recoz = {};
   if(useGenSim_){
     iEvent.getByToken(g4Label, simVertices);
     iEvent.getByToken(hepMCLabel, hepP);
@@ -119,6 +121,7 @@ void quickVertexAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetu
     if (Evt->vertices_begin() != Evt->vertices_end()) {
         auto* first_v = (*Evt->vertices_begin());
         verb_z += Form("HepMC first Vtx z: %.3f ",first_v->point3d().z() / 10.);
+	hepz.push_back(first_v->point3d().z() / 10.);
 
     }
 
@@ -130,11 +133,12 @@ void quickVertexAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetu
   int puNumInteractions;
   for (auto PVI : *PupInfo) {
     int BX = PVI.getBunchCrossing();
-    cout << BX << endl;
+    //cout << BX << endl;
     if (BX == 0) {
       const std::vector<float>& zpositions = PVI.getPU_zpositions();
       for( auto zp : zpositions){
         verb_z += Form(",%.3f ", zp);
+        hepz.push_back(zp);
       }
       
       trueNumInteractions = PVI.getTrueNumInteractions();
@@ -156,13 +160,26 @@ void quickVertexAnalysis::analyze(const edm::Event& iEvent, const edm::EventSetu
         cout << "Vtx is either invalid or fake" << endl;
         continue;
       }
-      cout << "Vtx z: " << vtx.z() << endl;
-      verb_z_rec += Form("%3.f, ", vtx.z());
+      verb_z_rec += Form("%.3f, ", vtx.z());
+      recoz.push_back(vtx.z());
       nVtxCount++;
     }
     hist_vertexcol->Fill(nVtxCount);
   }
 
+  cout << verb_z << endl;
+  cout << verb_z_rec << endl;
+  cout << "Sorted: " << endl;
+  verb_z = "Gen  : ";
+  verb_z_rec = "Reco : ";
+  std::sort(hepz.begin(), hepz.end());
+  std::sort(recoz.begin(), recoz.end());
+  for( auto gz : hepz){
+    verb_z += Form("%.3f, ", gz);
+  }
+  for( auto rz : recoz){
+    verb_z_rec += Form("%.3f, ", rz);
+  }
   cout << verb_z << endl;
   cout << verb_z_rec << endl;
 };
