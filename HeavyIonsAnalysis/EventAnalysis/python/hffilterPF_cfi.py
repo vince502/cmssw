@@ -1,60 +1,60 @@
 import FWCore.ParameterSet.Config as cms
- 
+
 phfCoincFilterPF2Th4  = cms.EDFilter('HiHFFilterPF',
-                                     pfCandidateSrc = cms.InputTag('packedPFCandidates'),
-                                     threshold      = cms.double(4.),
-                                     minnumtowers   = cms.int32(2)
+    pfCandidateSrc = cms.InputTag('packedPFCandidates'),
+    threshold      = cms.double(4.),
+    minnumtowers   = cms.int32(2)
 )
- 
+
 phfCoincFilterPF1Th4 = phfCoincFilterPF2Th4.clone(minnumtowers = 1)
 phfCoincFilterPF3Th4 = phfCoincFilterPF2Th4.clone(minnumtowers = 3)
 phfCoincFilterPF4Th4 = phfCoincFilterPF2Th4.clone(minnumtowers = 4)
 phfCoincFilterPF5Th4 = phfCoincFilterPF2Th4.clone(minnumtowers = 5)
- 
+
 phfCoincFilterPF1Th3 = phfCoincFilterPF2Th4.clone(threshold = 3, minnumtowers = 1)
 phfCoincFilterPF2Th3 = phfCoincFilterPF2Th4.clone(threshold = 3, minnumtowers = 2)
 phfCoincFilterPF3Th3 = phfCoincFilterPF2Th4.clone(threshold = 3, minnumtowers = 3)
 phfCoincFilterPF4Th3 = phfCoincFilterPF2Th4.clone(threshold = 3, minnumtowers = 4)
 phfCoincFilterPF5Th3 = phfCoincFilterPF2Th4.clone(threshold = 3, minnumtowers = 5)
- 
+
 phfCoincFilterPF1Th5 = phfCoincFilterPF2Th4.clone(threshold = 5, minnumtowers = 1)
 phfCoincFilterPF2Th5 = phfCoincFilterPF2Th4.clone(threshold = 5, minnumtowers = 2)
 phfCoincFilterPF3Th5 = phfCoincFilterPF2Th4.clone(threshold = 5, minnumtowers = 3)
 phfCoincFilterPF4Th5 = phfCoincFilterPF2Th4.clone(threshold = 5, minnumtowers = 4)
 phfCoincFilterPF5Th5 = phfCoincFilterPF2Th4.clone(threshold = 5, minnumtowers = 5)
- 
+
 phfCoincFilterPF1Th6 = phfCoincFilterPF2Th4.clone(threshold = 6, minnumtowers = 1)
 phfCoincFilterPF2Th6 = phfCoincFilterPF2Th4.clone(threshold = 6, minnumtowers = 2)
 phfCoincFilterPF3Th6 = phfCoincFilterPF2Th4.clone(threshold = 6, minnumtowers = 3)
 phfCoincFilterPF4Th6 = phfCoincFilterPF2Th4.clone(threshold = 6, minnumtowers = 4)
 phfCoincFilterPF5Th6 = phfCoincFilterPF2Th4.clone(threshold = 6, minnumtowers = 5)
- 
+
 phfCoincFilterPF1Th7 = phfCoincFilterPF2Th4.clone(threshold = 7, minnumtowers = 1)
 phfCoincFilterPF2Th7 = phfCoincFilterPF2Th4.clone(threshold = 7, minnumtowers = 2)
 phfCoincFilterPF3Th7 = phfCoincFilterPF2Th4.clone(threshold = 7, minnumtowers = 3)
 phfCoincFilterPF4Th7 = phfCoincFilterPF2Th4.clone(threshold = 7, minnumtowers = 4)
 phfCoincFilterPF5Th7 = phfCoincFilterPF2Th4.clone(threshold = 7, minnumtowers = 5)
- 
+
 phfCoincFilterPF1Th8 = phfCoincFilterPF2Th4.clone(threshold = 8, minnumtowers = 1)
 phfCoincFilterPF2Th8 = phfCoincFilterPF2Th4.clone(threshold = 8, minnumtowers = 2)
 phfCoincFilterPF3Th8 = phfCoincFilterPF2Th4.clone(threshold = 8, minnumtowers = 3)
 phfCoincFilterPF4Th8 = phfCoincFilterPF2Th4.clone(threshold = 8, minnumtowers = 4)
 phfCoincFilterPF5Th8 = phfCoincFilterPF2Th4.clone(threshold = 8, minnumtowers = 5)
- 
+
 phfCoincFilterPF1Th9 = phfCoincFilterPF2Th4.clone(threshold = 9, minnumtowers = 1)
 phfCoincFilterPF2Th9 = phfCoincFilterPF2Th4.clone(threshold = 9, minnumtowers = 2)
 phfCoincFilterPF3Th9 = phfCoincFilterPF2Th4.clone(threshold = 9, minnumtowers = 3)
 phfCoincFilterPF4Th9 = phfCoincFilterPF2Th4.clone(threshold = 9, minnumtowers = 4)
 phfCoincFilterPF5Th9 = phfCoincFilterPF2Th4.clone(threshold = 9, minnumtowers = 5)
- 
+
 phfCoincFilterPF1Th10 = phfCoincFilterPF2Th4.clone(threshold = 10, minnumtowers = 1)
 phfCoincFilterPF2Th10 = phfCoincFilterPF2Th4.clone(threshold = 10, minnumtowers = 2)
 phfCoincFilterPF3Th10 = phfCoincFilterPF2Th4.clone(threshold = 10, minnumtowers = 3)
 phfCoincFilterPF4Th10 = phfCoincFilterPF2Th4.clone(threshold = 10, minnumtowers = 4)
 phfCoincFilterPF5Th10 = phfCoincFilterPF2Th4.clone(threshold = 10, minnumtowers = 5)
- 
+
 phfCoincFilterPF4Th2 = phfCoincFilterPF2Th4.clone(threshold = 2, minnumtowers = 4)
- 
+
 pphfCoincFilterPF4Th2 = cms.Path(phfCoincFilterPF4Th2)
 pphfCoincFilterPF1Th3 = cms.Path(phfCoincFilterPF1Th3)
 pphfCoincFilterPF2Th3 = cms.Path(phfCoincFilterPF2Th3)

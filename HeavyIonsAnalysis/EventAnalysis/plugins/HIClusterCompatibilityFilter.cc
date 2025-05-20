@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/global/EDFilter.h"
+#include "FWCore/Framework/interface/one/EDFilter.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
@@ -13,19 +13,19 @@
 
 #include <DataFormats/HeavyIonEvent/interface/ClusterCompatibility.h>
 
-class HIClusterCompatibilityFilter : public edm::global::EDFilter<> {
+class HIClusterCompatibilityFilter : public edm::one::EDFilter<> {
 public:
   explicit HIClusterCompatibilityFilter(const edm::ParameterSet&);
-  //~HIClusterCompatibilityFilter();
+  ~HIClusterCompatibilityFilter() override;
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
   static double determineQuality(const reco::ClusterCompatibility& cc, double minZ, double maxZ);
 
 private:
-  //virtual void beginJob() override;
-  bool filter(edm::StreamID, edm::Event&, const edm::EventSetup&) const override;  // override;
-                                                                                   //virtual void endJob() override;
+  void beginJob() override;
+  bool filter(edm::Event&, const edm::EventSetup&) override;
+  void endJob() override;
 
   edm::EDGetTokenT<reco::ClusterCompatibility> cluscomSrc_;
 
@@ -45,9 +45,9 @@ HIClusterCompatibilityFilter::HIClusterCompatibilityFilter(const edm::ParameterS
       nhitsTrunc_(iConfig.getParameter<int>("nhitsTrunc")),
       clusterTrunc_(iConfig.getParameter<double>("clusterTrunc")) {}
 
-//HIClusterCompatibilityFilter::~HIClusterCompatibilityFilter() {}
+HIClusterCompatibilityFilter::~HIClusterCompatibilityFilter() {}
 
-bool HIClusterCompatibilityFilter::filter(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
+bool HIClusterCompatibilityFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
   bool accept = true;
@@ -76,17 +76,11 @@ bool HIClusterCompatibilityFilter::filter(edm::StreamID, edm::Event& iEvent, con
   // return with final filter decision
   return accept;
 }
-/*
-void
-HIClusterCompatibilityFilter::beginJob()
-{
-}
 
-void
-HIClusterCompatibilityFilter::endJob()
-{
-}
-*/
+void HIClusterCompatibilityFilter::beginJob() {}
+
+void HIClusterCompatibilityFilter::endJob() {}
+
 double HIClusterCompatibilityFilter::determineQuality(const reco::ClusterCompatibility& cc, double minZ, double maxZ) {
   // will compare cluster compatibility at a determined best
   // z position to + and - 10 cm from the best position

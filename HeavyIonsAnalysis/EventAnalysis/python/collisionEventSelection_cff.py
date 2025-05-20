@@ -16,11 +16,3 @@ hltPixelClusterShapeFilter.inputTag = "siPixelRecHits"
 # Cluster-shape filter re-run offline from ClusterCompatibility object
 from HeavyIonsAnalysis.EventAnalysis.clusterCompatibilityFilter_cfi import *
 
-# Reject beam scraping events, standard for pp and pA configurations
-beamScrapingFilter = cms.EDFilter("FilterOutScraping",
-    applyfilter = cms.untracked.bool(True),
-    debugOn = cms.untracked.bool(False),
-    src = cms.untracked.InputTag("unpackedTracksAndVertices"),
-    numtrack = cms.untracked.uint32(10),
-    thresh = cms.untracked.double(0.25)
-)

@@ -11,6 +11,8 @@
 <use name="L1Trigger/L1TNtuples"/>
 <use name="DataFormats/HeavyIonEvent"/>
 <use name="SimGeneral/HepPDTRecord"/>
+<use name="SimDataFormats/GeneratorProducts"/>
+<use name="RecoVertex/PrimaryVertexProducer"/>
 <use name="rootcore"/>
 <use name="heppdt"/>
 <flags EDM_PLUGIN="1"/>
