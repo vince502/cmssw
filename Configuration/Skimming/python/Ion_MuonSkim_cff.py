@@ -38,8 +38,8 @@ hltMuIon.andOr = True
 #    )
 
 # Z->mumu skim sequence
-MuSkimSequence = cms.Sequence(
-    hltMuIon *
+muSkimIonSequence = cms.Sequence(
+    hltMuIon 
 #    primaryVertexFilterForZMM *
 #    muonSelectorForZMM *
 #    muonFilterForZMM *
