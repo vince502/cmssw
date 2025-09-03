@@ -74,6 +74,8 @@ process.skim_path = cms.Path(
 )
 
 process.AODSIMoutput_step = cms.EndPath(process.AODSIMoutput)
+from HiSkim.HiOnia2MuMu.onia2MuMuPAT_cff import changeToMiniAOD
+changeToMiniAOD(process)
 
 # Schedule definition
 process.schedule = cms.Schedule(process.skim_path, process.AODSIMoutput_step)
