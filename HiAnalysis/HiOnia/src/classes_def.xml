@@ -1,0 +1,4 @@
+<lcgdict>
+  <class name="pat::UserHolder<int>" />
+  <class name="pat::UserHolder<unsigned long>" />
+</lcgdict>
