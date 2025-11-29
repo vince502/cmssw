@@ -15,10 +15,6 @@
 void flattenOniaTree(const char* inputFile = "OniaTree_Combined_PbPb2025_DATA.root",
                      const char* outputFile = "FlatOniaTree.root") {
     
-    std::cout << "=== Flatten OniaTree ===" << std::endl;
-    std::cout << "Input:  " << inputFile << std::endl;
-    std::cout << "Output: " << outputFile << std::endl;
-    
     // Open input file
     TFile* fIn = TFile::Open(inputFile, "READ");
     if (!fIn || fIn->IsZombie()) {
@@ -37,14 +33,11 @@ void flattenOniaTree(const char* inputFile = "OniaTree_Combined_PbPb2025_DATA.ro
         fIn->Close();
         return;
     }
-    std::cout << "Found tree with " << tree->GetEntries() << " entries" << std::endl;
     
     // Create output file
     TFile* fOut = new TFile(outputFile, "RECREATE");
     
-    // ========================================
-    // DIMUON FLAT TREE
-    // ========================================
+    // Dimuon flat tree
     TTree* muTree = new TTree("DimuonTree", "Flat dimuon tree");
     
     // Event info
@@ -121,9 +114,7 @@ void flattenOniaTree(const char* inputFile = "OniaTree_Combined_PbPb2025_DATA.ro
     muTree->Branch("mumi_isSoft", &mumi_isSoft);
     muTree->Branch("mumi_isPF", &mumi_isPF);
     
-    // ========================================
-    // DIELECTRON FLAT TREE
-    // ========================================
+    // Dielectron flat tree
     TTree* eleTree = new TTree("DielectronTree", "Flat dielectron tree");
     
     // Event info
@@ -377,20 +368,12 @@ void flattenOniaTree(const char* inputFile = "OniaTree_Combined_PbPb2025_DATA.ro
         if (tree->GetBranch("Reco_ele_scEn")) tree->SetBranchAddress("Reco_ele_scEn", Reco_ele_scEn);
     }
     
-    std::cout << "Has muons: " << hasMuons << ", Has electrons: " << hasElectrons << std::endl;
-    std::cout << "Using vector momentum format: " << useVectorMom << std::endl;
     
-    // ========================================
     // Event loop
-    // ========================================
     Long64_t nEntries = tree->GetEntries();
     Long64_t nDimuons = 0, nDielectrons = 0;
     
     for (Long64_t iEntry = 0; iEntry < nEntries; iEntry++) {
-        if (iEntry % 10000 == 0) {
-            std::cout << "Processing entry " << iEntry << " / " << nEntries << std::endl;
-        }
-        
         tree->GetEntry(iEntry);
         
         // Process dimuons
@@ -581,8 +564,4 @@ void flattenOniaTree(const char* inputFile = "OniaTree_Combined_PbPb2025_DATA.ro
     fOut->Close();
     fIn->Close();
     
-    std::cout << "=== Done ===" << std::endl;
-    std::cout << "Total dimuons:     " << nDimuons << std::endl;
-    std::cout << "Total dielectrons: " << nDielectrons << std::endl;
-    std::cout << "Output: " << outputFile << std::endl;
 }

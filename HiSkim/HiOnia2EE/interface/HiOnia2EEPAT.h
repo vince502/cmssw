@@ -58,6 +58,7 @@ private:
   virtual void endJob();
   bool isGoodElectron(const pat::Electron*, const reco::BeamSpot&, const reco::ConversionCollection&);
   bool passElectronID(const pat::Electron&);
+  bool passHardcodedID(const pat::Electron&);
   const reco::TrackBase::Point rotatePoint(reco::TrackBase::Point PV, reco::TrackBase::Point TrkPoint, int flipJpsi);
   const reco::TrackBase::Vector rotateMomentum(reco::Track trk, int flipJpsi);
   bool isAbHadron(int pdgID);
@@ -105,6 +106,11 @@ private:
   edm::EDGetTokenT<std::vector<pat::TriggerObjectStandAlone> > triggerObjectsToken_;
   bool requireLastFilter_;
   bool requireL3Filter_;
+
+  // Electron ID configuration
+  std::string electronIDType_;    // "hardcoded", "cutbased", "mva", "hiMVA"
+  std::string electronIDWP_;      // working point: "loose", "medium", "tight", "wp90", "wp80", etc.
+  std::string electronIDName_;    // full MiniAOD ID name if using cutbased/mva
 
   InvariantMassFromVertex massCalculator;
   math::XYZPoint RefVtx;

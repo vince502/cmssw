@@ -1,8 +1,7 @@
 #ifndef HIANALYSIS_HIONIA_HIONIACOMBINEDANALYZER_H
 #define HIANALYSIS_HIONIA_HIONIACOMBINEDANALYZER_H
 
-// Combined Analyzer for J/psi -> mu+mu- and J/psi -> e+e-
-// Produces a single tree with both muon and electron branches
+// Combined analyzer for dimuon and dielectron
 
 #include <map>
 #include <memory>

@@ -105,10 +105,18 @@ HiOnia2EEPAT::HiOnia2EEPAT(const edm::ParameterSet &iConfig)
       triggerLabels_.push_back("trig_" + sanitizeLabel(path));
     }
 
-    triggerResultsToken_ = consumes<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerResults"));
+      triggerResultsToken_ = consumes<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerResults"));
     triggerObjectsToken_ = consumes<std::vector<pat::TriggerObjectStandAlone> >(
         iConfig.getParameter<edm::InputTag>("triggerObjects"));
   }
+
+  // Electron ID configuration
+  electronIDType_ = iConfig.existsAs<std::string>("electronIDType") 
+                    ? iConfig.getParameter<std::string>("electronIDType") : "hardcoded";
+  electronIDWP_ = iConfig.existsAs<std::string>("electronIDWP") 
+                  ? iConfig.getParameter<std::string>("electronIDWP") : "";
+  electronIDName_ = iConfig.existsAs<std::string>("electronIDName") 
+                    ? iConfig.getParameter<std::string>("electronIDName") : "";
 
   produces<pat::CompositeCandidateCollection>("");
   produces<pat::CompositeCandidateCollection>("trielectron");
@@ -121,45 +129,78 @@ HiOnia2EEPAT::~HiOnia2EEPAT(){};
 //
 
 bool HiOnia2EEPAT::isGoodElectron(const pat::Electron *aElectron, const reco::BeamSpot& beamSpot, const reco::ConversionCollection& conversions) {
-  // Basic electron quality cuts
   if (!aElectron->gsfTrack().isNonnull()) return false;
-  
-  // Track quality requirements
   if (aElectron->gsfTrack()->hitPattern().trackerLayersWithMeasurement() <= 5) return false;
   if (aElectron->gsfTrack()->hitPattern().pixelLayersWithMeasurement() == 0) return false;
   if (fabs(aElectron->gsfTrack()->dxy(RefVtx)) >= 0.3) return false;
   if (fabs(aElectron->gsfTrack()->dz(RefVtx)) >= 20.) return false;
-  
-  // Conversion rejection - crucial for electron identification
-  bool passConvVeto = !ConversionTools::hasMatchedConversion(*aElectron, conversions, beamSpot.position());
-  if (!passConvVeto) return false;
-  
-  // Basic electron ID cuts
+  if (ConversionTools::hasMatchedConversion(*aElectron, conversions, beamSpot.position())) return false;
   if (!passElectronID(*aElectron)) return false;
-  
   return true;
 }
 
 bool HiOnia2EEPAT::passElectronID(const pat::Electron& ele) {
-  // Basic electron ID requirements similar to those used in ggHiNtuplizer
-  // These can be made configurable if needed
-  
-  // H/E cut
+  // Use configurable electron ID based on electronIDType_
+  if (electronIDType_ == "hardcoded") {
+    return passHardcodedID(ele);
+  } 
+  else if (electronIDType_ == "cutbased" || electronIDType_ == "mva") {
+    // Use MiniAOD's native electronID() method
+    if (!electronIDName_.empty()) {
+      return ele.electronID(electronIDName_) > 0.5;
+    }
+    // Fallback to standard ID names based on WP
+    std::string idName;
+    if (electronIDType_ == "cutbased") {
+      if (electronIDWP_ == "veto") idName = "cutBasedElectronID-RunIIIWinter22-V1-veto";
+      else if (electronIDWP_ == "loose") idName = "cutBasedElectronID-RunIIIWinter22-V1-loose";
+      else if (electronIDWP_ == "medium") idName = "cutBasedElectronID-RunIIIWinter22-V1-medium";
+      else if (electronIDWP_ == "tight") idName = "cutBasedElectronID-RunIIIWinter22-V1-tight";
+      else idName = "cutBasedElectronID-RunIIIWinter22-V1-loose"; // default
+    } else { // mva
+      if (electronIDWP_ == "wp90") idName = "mvaEleID-RunIIIWinter22-iso-V1-wp90";
+      else if (electronIDWP_ == "wp80") idName = "mvaEleID-RunIIIWinter22-iso-V1-wp80";
+      else idName = "mvaEleID-RunIIIWinter22-iso-V1-wp90"; // default
+    }
+    if (ele.isElectronIDAvailable(idName)) {
+      return ele.electronID(idName) > 0.5;
+    }
+    // ID not available, fallback to hardcoded
+    return passHardcodedID(ele);
+  }
+  else if (electronIDType_ == "hiMVA") {
+    // Use HI-specific MVA ID from HIElectronInfoProducer
+    std::string wpKey = "hiMVAIdWP" + electronIDWP_;
+    if (ele.hasUserInt(wpKey)) {
+      return ele.userInt(wpKey) > 0;
+    }
+    // Fallback: check hiMVAId score directly with threshold
+    if (ele.hasUserFloat("hiMVAId")) {
+      float threshold = 0.0;
+      if (electronIDWP_ == "95") threshold = -0.5;
+      else if (electronIDWP_ == "90") threshold = 0.0;
+      else if (electronIDWP_ == "85") threshold = 0.3;
+      else if (electronIDWP_ == "80") threshold = 0.5;
+      return ele.userFloat("hiMVAId") > threshold;
+    }
+    return passHardcodedID(ele);
+  }
+  else if (electronIDType_ == "none") {
+    return true; // No ID applied
+  }
+  // Default fallback
+  return passHardcodedID(ele);
+}
+
+bool HiOnia2EEPAT::passHardcodedID(const pat::Electron& ele) {
   if (ele.hcalOverEcal() > 0.15) return false;
-  
-  // Shower shape cut (sigma ieta ieta)
   if (fabs(ele.superCluster()->eta()) <= 1.479) {
-    // Barrel
     if (ele.full5x5_sigmaIetaIeta() > 0.012) return false;
   } else {
-    // Endcap  
     if (ele.full5x5_sigmaIetaIeta() > 0.035) return false;
   }
-  
-  // Track-cluster matching cuts
   if (fabs(ele.deltaEtaSuperClusterTrackAtVtx()) > 0.01) return false;
   if (fabs(ele.deltaPhiSuperClusterTrackAtVtx()) > 0.08) return false;
-  
   return true;
 }
 
@@ -411,12 +452,10 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       myCand.setP4(jpsi);
       myCand.setCharge(it.charge() + it2.charge());
 
-      // ---- Store electron-specific information ----
-      // Conversion veto results
+      // Store electron-specific information
       userInt["ele1ConvVeto"] = (int)(!ConversionTools::hasMatchedConversion(it, *conversions, theBeamSpot->position()));
       userInt["ele2ConvVeto"] = (int)(!ConversionTools::hasMatchedConversion(it2, *conversions, theBeamSpot->position()));
       
-      // SuperCluster variables
       userFloat["ele1SCEta"] = it.superCluster()->eta();
       userFloat["ele2SCEta"] = it2.superCluster()->eta();
       userFloat["ele1SCPhi"] = it.superCluster()->phi();
@@ -424,7 +463,6 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userFloat["ele1SCEn"] = it.superCluster()->energy();
       userFloat["ele2SCEn"] = it2.superCluster()->energy();
       
-      // Electron ID variables
       userFloat["ele1HoverE"] = it.hcalOverEcal();
       userFloat["ele2HoverE"] = it2.hcalOverEcal();
       userFloat["ele1SigmaIEtaIEta"] = it.full5x5_sigmaIetaIeta();
@@ -434,15 +472,12 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userFloat["ele1DeltaPhiIn"] = it.deltaPhiSuperClusterTrackAtVtx();
       userFloat["ele2DeltaPhiIn"] = it2.deltaPhiSuperClusterTrackAtVtx();
       
-      // Bremsstrahlung
       userFloat["ele1FBrem"] = it.fbrem();
       userFloat["ele2FBrem"] = it2.fbrem();
       
-      // E/p ratio
       userFloat["ele1EoverP"] = it.eSuperClusterOverP();
       userFloat["ele2EoverP"] = it2.eSuperClusterOverP();
       
-      // PF Isolation
       reco::GsfElectron::PflowIsolationVariables pfIso1 = it.pfIsolationVariables();
       reco::GsfElectron::PflowIsolationVariables pfIso2 = it2.pfIsolationVariables();
       userFloat["ele1PFChIso"] = pfIso1.sumChargedHadronPt;
@@ -454,14 +489,12 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userFloat["ele1PFPUIso"] = pfIso1.sumPUPt;
       userFloat["ele2PFPUIso"] = pfIso2.sumPUPt;
       
-      // MVA-based ID and Isolation from HIElectronInfoProducer
-      // These are added as userFloat by HIElectronInfoProducer
+      // MVA-based ID and Isolation
       userFloat["ele1MVAIso"] = it.hasUserFloat("hiMVAIso") ? it.userFloat("hiMVAIso") : -99.f;
       userFloat["ele2MVAIso"] = it2.hasUserFloat("hiMVAIso") ? it2.userFloat("hiMVAIso") : -99.f;
       userFloat["ele1MVAId"] = it.hasUserFloat("hiMVAId") ? it.userFloat("hiMVAId") : -99.f;
       userFloat["ele2MVAId"] = it2.hasUserFloat("hiMVAId") ? it2.userFloat("hiMVAId") : -99.f;
       
-      // MVA Working Points
       userInt["ele1MVAIsoWP95"] = it.hasUserInt("hiMVAIsoWP95") ? it.userInt("hiMVAIsoWP95") : -1;
       userInt["ele2MVAIsoWP95"] = it2.hasUserInt("hiMVAIsoWP95") ? it2.userInt("hiMVAIsoWP95") : -1;
       userInt["ele1MVAIsoWP90"] = it.hasUserInt("hiMVAIsoWP90") ? it.userInt("hiMVAIsoWP90") : -1;
@@ -480,7 +513,6 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userInt["ele1MVAIdWP80"] = it.hasUserInt("hiMVAIdWP80") ? it.userInt("hiMVAIdWP80") : -1;
       userInt["ele2MVAIdWP80"] = it2.hasUserInt("hiMVAIdWP80") ? it2.userInt("hiMVAIdWP80") : -1;
       
-      // Cut-based ID Working Points
       userInt["ele1CutIdWP95"] = it.hasUserInt("hiCutIdWP95") ? it.userInt("hiCutIdWP95") : -1;
       userInt["ele2CutIdWP95"] = it2.hasUserInt("hiCutIdWP95") ? it2.userInt("hiCutIdWP95") : -1;
       userInt["ele1CutIdWP90"] = it.hasUserInt("hiCutIdWP90") ? it.userInt("hiCutIdWP90") : -1;
@@ -490,7 +522,7 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userInt["ele1CutIdWP70"] = it.hasUserInt("hiCutIdWP70") ? it.userInt("hiCutIdWP70") : -1;
       userInt["ele2CutIdWP70"] = it2.hasUserInt("hiCutIdWP70") ? it2.userInt("hiCutIdWP70") : -1;
       
-      // Energy corrections (rawPt and rawEcalEnergy from CorrectedElectronProducer)
+      // Energy corrections
       userFloat["ele1RawPt"] = it.hasUserFloat("rawPt") ? it.userFloat("rawPt") : it.pt();
       userFloat["ele2RawPt"] = it2.hasUserFloat("rawPt") ? it2.userFloat("rawPt") : it2.pt();
       userFloat["ele1RawEcalEnergy"] = it.hasUserFloat("rawEcalEnergy") ? it.userFloat("rawEcalEnergy") : it.ecalEnergy();

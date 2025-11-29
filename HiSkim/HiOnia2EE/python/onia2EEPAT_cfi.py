@@ -36,6 +36,14 @@ onia2ElectronElectronPAT = cms.EDProducer('HiOnia2EEPAT',
     onlySingleElectrons = cms.bool(False),
     flipJpsiDirection = cms.int32(0),
 
+    # Electron ID configuration
+    # electronIDType: "hardcoded" (default), "cutbased", "mva", "hiMVA", "none"
+    # electronIDWP: working point (e.g., "loose", "medium", "tight", "wp90", "wp80", "95", "90", "85", "80")
+    # electronIDName: explicit MiniAOD ID name (overrides electronIDWP if set)
+    electronIDType = cms.string("hardcoded"),
+    electronIDWP = cms.string(""),
+    electronIDName = cms.string(""),
+
     # trigger matching (optional)
     doTriggerMatching = cms.bool(False),
     triggerResults = cms.InputTag("TriggerResults","","HLT"),

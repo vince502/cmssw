@@ -28,6 +28,28 @@ onia2ElectronElectronPatGlbGlb = onia2ElectronElectronPAT.clone(
     triggerPaths = cms.vstring(*electron_trigger_paths)
 )
 
+def setElectronID(producer, idType="hardcoded", wp="", idName=""):
+    """
+    Configure electron ID for an onia2EE producer.
+    
+    Args:
+        producer: The onia2EE producer module
+        idType: "hardcoded" (default), "cutbased", "mva", "hiMVA", "none"
+        wp: Working point. For cutbased: "veto/loose/medium/tight"
+            For mva: "wp90/wp80". For hiMVA: "95/90/85/80"
+        idName: Explicit MiniAOD ID name (overrides wp if set)
+    
+    Examples:
+        setElectronID(process.onia2ElectronElectronPatGlbGlb, "cutbased", "loose")
+        setElectronID(process.onia2ElectronElectronPatGlbGlb, "mva", "wp90")
+        setElectronID(process.onia2ElectronElectronPatGlbGlb, "hiMVA", "90")
+        setElectronID(process.onia2ElectronElectronPatGlbGlb, "cutbased", idName="cutBasedElectronID-RunIIIWinter22-V1-loose")
+    """
+    producer.electronIDType = cms.string(idType)
+    producer.electronIDWP = cms.string(wp)
+    producer.electronIDName = cms.string(idName)
+    return producer
+
 # Upsilon -> e+e- selection  
 upsilon2ElectronElectronPatGlbGlb = onia2ElectronElectronPAT.clone(
     higherPuritySelection = cms.string("pt > 4.0 && abs(eta) < 2.4"),

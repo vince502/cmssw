@@ -14,9 +14,6 @@
 void flattenOniaTreeBatch(const char* fileListPath = "filelist.txt",
                           const char* outputFile = "FlatOniaTree.root") {
     
-    std::cout << "=== Flatten OniaTree (Batch) ===" << std::endl;
-    std::cout << "File list: " << fileListPath << std::endl;
-    std::cout << "Output:    " << outputFile << std::endl;
     
     // Read file list
     std::vector<std::string> inputFiles;
@@ -29,7 +26,6 @@ void flattenOniaTreeBatch(const char* fileListPath = "filelist.txt",
     }
     fileList.close();
     
-    std::cout << "Found " << inputFiles.size() << " input files" << std::endl;
     
     if (inputFiles.empty()) {
         std::cerr << "Error: No input files found!" << std::endl;
@@ -54,7 +50,6 @@ void flattenOniaTreeBatch(const char* fileListPath = "filelist.txt",
         nEntries = chain->GetEntries();
     }
     
-    std::cout << "Total entries in chain: " << nEntries << std::endl;
     
     if (nEntries == 0) {
         std::cerr << "Error: No entries found in chain!" << std::endl;
@@ -394,20 +389,11 @@ void flattenOniaTreeBatch(const char* fileListPath = "filelist.txt",
         if (chain->GetBranch("Reco_ele_scEn")) chain->SetBranchAddress("Reco_ele_scEn", Reco_ele_scEn);
     }
     
-    std::cout << "Has muons: " << hasMuons << ", Has electrons: " << hasElectrons << std::endl;
-    std::cout << "Using vector momentum format: " << useVectorMom << std::endl;
     
-    // ========================================
     // Event loop
-    // ========================================
     Long64_t nDimuons = 0, nDielectrons = 0;
     
     for (Long64_t iEntry = 0; iEntry < nEntries; iEntry++) {
-        if (iEntry % 50000 == 0) {
-            std::cout << "Processing entry " << iEntry << " / " << nEntries 
-                      << " (" << 100.0*iEntry/nEntries << "%)" << std::endl;
-        }
-        
         chain->GetEntry(iEntry);
         
         // Process dimuons
@@ -567,8 +553,4 @@ void flattenOniaTreeBatch(const char* fileListPath = "filelist.txt",
     
     delete chain;
     
-    std::cout << "=== Done ===" << std::endl;
-    std::cout << "Total dimuons:     " << nDimuons << std::endl;
-    std::cout << "Total dielectrons: " << nDielectrons << std::endl;
-    std::cout << "Output: " << outputFile << std::endl;
 }

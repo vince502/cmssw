@@ -12,10 +12,6 @@ from Configuration.StandardSequences.Eras import eras
 #   - akCs4PFJetAnalyzer/t: Jets
 #============================================================================
 
-print("="*80)
-print("FULL ONIA + EGM + JET ANALYZER")
-print("Configuration: 2025 PbPb Prompt Reco DATA")
-print("="*80)
 
 #----------------------------------------------------------------------------
 # Configuration Flags
@@ -68,7 +64,6 @@ process.load('FWCore.MessageService.MessageLogger_cfi')
 from Configuration.AlCa.GlobalTag import GlobalTag
 globalTag = '151X_dataRun3_Prompt_v1'
 process.GlobalTag = GlobalTag(process.GlobalTag, globalTag, '')
-print(f"[INFO] Using Global Tag: {globalTag}")
 
 # Centrality
 process.load("RecoHI.HiCentralityAlgos.CentralityBin_cfi")
@@ -314,26 +309,3 @@ process.schedule = cms.Schedule(
     process.forest
 )
 
-#============================================================================
-# Summary
-#============================================================================
-print("="*80)
-print("Configuration complete!")
-print("")
-print("Output trees:")
-print("  1. hioniaCombined/OniaTree    - Dimuon + Dielectron (Onia style)")
-print("     Branches: Reco_mu_*, Reco_QQ_*, Reco_ele_*, Reco_ee_*")
-print("")
-print("  2. ggHiNtuplizer/EventTree    - Single electrons/photons (Forest style)")
-print("     Branches: elePt, eleEta, phoEt, phoEta, etc.")
-print("")
-print("  3. akCs4PFJetAnalyzer/t       - CS-subtracted PF Jets")
-print("     Branches: jtpt, jteta, jtphi, etc.")
-print("")
-print("  4. akPu4CaloJetAnalyzer/t     - CaloJets")
-print("     Branches: jtpt, jteta, jtphi, etc.")
-print("")
-print("  5. HiForestInfo/HiForest      - Run info")
-print("")
-print(f"Output file: {options.outputFile}")
-print("="*80)

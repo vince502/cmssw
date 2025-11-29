@@ -96,7 +96,6 @@ void HiOniaElectronAnalyzer::beginRun(const edm::Run& run, const edm::EventSetup
   EDConsumerBase::Labels labelTriggerResults;
   EDConsumerBase::labelsForToken(triggerResultsToken_, labelTriggerResults);
   const std::string pro = labelTriggerResults.process;
-  std::cout << "Setting Trigger Result Process: " << pro << std::endl;
   bool changed = true;
   if (hltConfig_.init(run, setup, pro, changed)) {
     hltConfigInit_ = true;

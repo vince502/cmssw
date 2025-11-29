@@ -1,5 +1,4 @@
-// Combined Analyzer for J/psi -> mu+mu- and J/psi -> e+e-
-// Produces a single tree with both muon and electron branches
+// Combined analyzer for dimuon and dielectron
 
 #include "HiAnalysis/HiOnia/interface/HiOniaCombinedAnalyzer.h"
 
@@ -98,13 +97,6 @@ HiOniaCombinedAnalyzer::HiOniaCombinedAnalyzer(const edm::ParameterSet& iConfig)
 
   electronTriggerIndices_.resize(electronTriggerPathNames_.size(), std::numeric_limits<unsigned int>::max());
   electronTriggerAccepts_.resize(electronTriggerPathNames_.size(), false);
-
-  std::cout << "HiOniaCombinedAnalyzer initialized:" << std::endl;
-  std::cout << "  Fill Muons: " << fillMuons_ << std::endl;
-  std::cout << "  Fill Electrons: " << fillElectrons_ << std::endl;
-  std::cout << "  Muon triggers (double): " << NTRIGGERS_DBL_ << std::endl;
-  std::cout << "  Muon triggers (single): " << sglMuonTriggerPathNames_.size() << std::endl;
-  std::cout << "  Electron triggers: " << electronTriggerPathNames_.size() << std::endl;
 }
 
 HiOniaCombinedAnalyzer::~HiOniaCombinedAnalyzer() {
@@ -118,16 +110,13 @@ void HiOniaCombinedAnalyzer::beginJob() {
   InitTree();
 }
 
-void HiOniaCombinedAnalyzer::endJob() {
-  std::cout << "HiOniaCombinedAnalyzer: Total events processed = " << nEvents_ << std::endl;
-}
+void HiOniaCombinedAnalyzer::endJob() {}
 
 void HiOniaCombinedAnalyzer::beginRun(const edm::Run& run, const edm::EventSetup& setup) {
   // Initialize HLT config
   EDConsumerBase::Labels labelTriggerResults;
   EDConsumerBase::labelsForToken(triggerResultsToken_, labelTriggerResults);
   const std::string pro = labelTriggerResults.process;
-  std::cout << "HiOniaCombinedAnalyzer: Setting Trigger Result Process: " << pro << std::endl;
 
   bool changed = true;
   if (hltConfig_.init(run, setup, pro, changed)) {
@@ -245,9 +234,7 @@ void HiOniaCombinedAnalyzer::InitTree() {
     tree_->Branch("rpAng", rpAng_, "rpAng[nEP]/F");
   }
 
-  // ===========================================
-  // MUON BRANCHES
-  // ===========================================
+  // Muon branches
   if (fillMuons_) {
     // Reco muons
     tree_->Branch("Reco_mu_size", &Reco_mu_size_, "Reco_mu_size/S");
@@ -341,9 +328,7 @@ void HiOniaCombinedAnalyzer::InitTree() {
     }
   }
 
-  // ===========================================
-  // ELECTRON BRANCHES
-  // ===========================================
+  // Electron branches
   if (fillElectrons_) {
     // Reco electrons
     tree_->Branch("Reco_ele_size", &Reco_ele_size_, "Reco_ele_size/I");
@@ -666,9 +651,7 @@ std::string HiOniaCombinedAnalyzer::resolveTriggerName(const std::string& reques
   return std::string();
 }
 
-// =====================================================
-// MUON METHODS
-// =====================================================
+// Muon methods
 void HiOniaCombinedAnalyzer::fillRecoMuons(const edm::Event& iEvent) {
   edm::Handle<pat::MuonCollection> muons;
   iEvent.getByToken(muonToken_, muons);
@@ -774,19 +757,12 @@ void HiOniaCombinedAnalyzer::fillRecoDimuons(const edm::Event& iEvent) {
       continue;
     }
 
-    // Check for PV userData (required by legacy analyzer)
-    // The dimuon producer stores the PV info, if not present skip
-    if (!cand.hasUserData("PVwithmuons") && !cand.hasUserData("muonlessPV")) {
-      // This is expected if running without the full onia sequence
-      // Just proceed without the PV check
-    }
-
-    // Apply muon eta cut (same as legacy: etaMax = 2.5)
+    // Apply muon eta cut
     if (std::abs(muon1->eta()) >= 2.5 || std::abs(muon2->eta()) >= 2.5) {
       continue;
     }
 
-    // Apply muon selection cuts based on muonSel_
+    // Apply muon selection
     bool passSelection = false;
     Short_t qqType = 0;
     
@@ -841,7 +817,7 @@ void HiOniaCombinedAnalyzer::fillRecoDimuons(const edm::Event& iEvent) {
       Reco_QQ_mumi_idx_[idx] = IndexOfThisMuon(&vMuon1);
     }
 
-    // Vertex and lifetime info
+    // Vertex and lifetime
     Reco_QQ_VtxProb_[idx] = cand.hasUserFloat("vProb") ? cand.userFloat("vProb") : kInvalidFloat;
     Reco_QQ_ctau_[idx] = cand.hasUserFloat("ppdlPV") ? 10.0 * cand.userFloat("ppdlPV") : kInvalidFloat;
     Reco_QQ_ctauErr_[idx] = cand.hasUserFloat("ppdlErrPV") ? 10.0 * cand.userFloat("ppdlErrPV") : kInvalidFloat;
@@ -851,7 +827,7 @@ void HiOniaCombinedAnalyzer::fillRecoDimuons(const edm::Event& iEvent) {
     Reco_QQ_cosAlpha3D_[idx] = cand.hasUserFloat("cosAlpha3D") ? cand.userFloat("cosAlpha3D") : kInvalidFloat;
     Reco_QQ_dca_[idx] = cand.hasUserFloat("DCA") ? cand.userFloat("DCA") : kInvalidFloat;
 
-    // Check trigger matching
+    // Trigger matching
     checkMuonTriggers(&cand);
     ULong64_t trigBits = 0;
     for (unsigned int iTr = 1; iTr < NTRIGGERS_; ++iTr) {
@@ -873,7 +849,7 @@ void HiOniaCombinedAnalyzer::fillGenMuons(const edm::Event& iEvent) {
   iEvent.getByToken(genParticleToken_, genParticles);
   if (!genParticles.isValid()) return;
 
-  // First pass: collect gen muons
+  // Collect gen muons
   for (size_t i = 0; i < genParticles->size(); ++i) {
     const auto& gen = (*genParticles)[i];
     if (std::abs(gen.pdgId()) != 13) continue;
@@ -893,7 +869,7 @@ void HiOniaCombinedAnalyzer::fillGenMuons(const edm::Event& iEvent) {
     Gen_mu_size_++;
   }
 
-  // Second pass: collect gen J/psi -> mu+mu-
+  // Collect gen J/psi -> mu+mu-
   for (size_t i = 0; i < genParticles->size(); ++i) {
     const auto& gen = (*genParticles)[i];
     if (gen.pdgId() != 443) continue;  // J/psi
@@ -939,7 +915,6 @@ int HiOniaCombinedAnalyzer::IndexOfThisMuon(TLorentzVector* v1, bool isGen) {
 }
 
 bool HiOniaCombinedAnalyzer::selGlobalMuon(const pat::Muon* aMuon) {
-  // Match legacy behavior: just check isGlobalMuon (no applyCuts)
   return aMuon->isGlobalMuon();
 }
 
@@ -948,7 +923,6 @@ bool HiOniaCombinedAnalyzer::selTrackerMuon(const pat::Muon* aMuon) {
 }
 
 bool HiOniaCombinedAnalyzer::selGlobalOrTrackerMuon(const pat::Muon* aMuon) {
-  // Match legacy behavior: just check isGlobal OR isTracker (no applyCuts)
   return (aMuon->isGlobalMuon() || aMuon->isTrackerMuon());
 }
 
@@ -1001,9 +975,7 @@ long int HiOniaCombinedAnalyzer::FloatToIntkey(float v) {
   return static_cast<long int>(v * 1e6);
 }
 
-// =====================================================
-// ELECTRON METHODS
-// =====================================================
+// Electron methods
 void HiOniaCombinedAnalyzer::fillRecoElectrons(const edm::Event& iEvent) {
   edm::Handle<pat::ElectronCollection> electrons;
   iEvent.getByToken(electronToken_, electrons);
@@ -1149,7 +1121,7 @@ void HiOniaCombinedAnalyzer::fillRecoDielectrons(const edm::Event& iEvent) {
     Reco_ee_vProb_[idx] = cand.hasUserFloat("vProb") ? cand.userFloat("vProb") : kInvalidFloat;
     Reco_ee_chi2_[idx] = cand.hasUserFloat("chi2") ? cand.userFloat("chi2") : kInvalidFloat;
 
-    // Find electron indices - use named daughters from HiOnia2EEPAT
+    // Find electron indices
     Short_t ele1Idx = -1, ele2Idx = -1;
     const auto* dau1 = dynamic_cast<const pat::Electron*>(cand.daughter("electron1"));
     const auto* dau2 = dynamic_cast<const pat::Electron*>(cand.daughter("electron2"));
@@ -1164,7 +1136,7 @@ void HiOniaCombinedAnalyzer::fillRecoDielectrons(const edm::Event& iEvent) {
     Reco_ee_ele1Idx_[idx] = ele1Idx;
     Reco_ee_ele2Idx_[idx] = ele2Idx;
 
-    // Get trigger bits from candidate
+    // Trigger bits
     uint64_t candTrigBits = 0ULL;
     if (cand.hasUserData("trigBits")) {
       candTrigBits = *cand.userData<uint64_t>("trigBits");
@@ -1202,7 +1174,7 @@ void HiOniaCombinedAnalyzer::fillGenElectrons(const edm::Event& iEvent) {
     ++Gen_ele_size_;
   }
 
-  // Create gen dielectron pairs from electrons with J/psi mother
+  // Create gen dielectron pairs
   for (size_t i = 0; i < genElectronIndices.size(); ++i) {
     for (size_t j = i + 1; j < genElectronIndices.size(); ++j) {
       if (Gen_ee_size_ >= Max_ee_size) break;
