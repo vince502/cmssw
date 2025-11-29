@@ -8,8 +8,11 @@
 <use   name="DataFormats/HLTReco"/>
 <use   name="HLTrigger/HLTcore"/>
 <use   name="CommonTools/UtilAlgos"/>
+<use   name="CommonTools/Egamma"/>
 <use   name="TrackingTools/IPTools"/>
 <use   name="MuonAnalysis/MuonAssociators"/>
+<use   name="DataFormats/EgammaCandidates"/>
+<use   name="SimDataFormats/GeneratorProducts"/>
 <export>
   <lib   name="1"/>
 </export>

@@ -43,7 +43,8 @@ HiOniaElectronAnalyzer::HiOniaElectronAnalyzer(const edm::ParameterSet& iConfig)
       tree_(nullptr),
       Reco_ele_size_(0),
       Reco_ee_size_(0),
-      Gen_ele_size_(0) {
+      Gen_ele_size_(0),
+      Gen_ee_size_(0) {
   usesResource(TFileService::kSharedResource);
 
   if (iConfig.existsAs<edm::InputTag>("CentralitySrc")) {
@@ -113,11 +114,14 @@ void HiOniaElectronAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
   fillPrimaryVertexInfo(iEvent);
   fillCentralityInfo(iEvent);
   fillTriggerInfo(iEvent);
-  fillRecoElectrons(iEvent);
-  fillRecoDielectrons(iEvent);
+  
+  // Fill gen info first so it's available for matching
   if (storeGenInfo_ && isMC_) {
     fillGeneratorInfo(iEvent);
   }
+  
+  fillRecoElectrons(iEvent);
+  fillRecoDielectrons(iEvent);
 
   if (fillTree_ && tree_)
     tree_->Fill();
@@ -189,6 +193,28 @@ void HiOniaElectronAnalyzer::initTree() {
   tree_->Branch("Reco_ele_pfPUIso", Reco_ele_pfPUIso_, "Reco_ele_pfPUIso[Reco_ele_size]/F");
   tree_->Branch("Reco_ele_convVeto", Reco_ele_convVeto_, "Reco_ele_convVeto[Reco_ele_size]/S");
   tree_->Branch("Reco_ele_trigBits", Reco_ele_trigBits_, "Reco_ele_trigBits[Reco_ele_size]/l");
+  
+  // MVA-based ID and Isolation
+  tree_->Branch("Reco_ele_MVAIso", Reco_ele_MVAIso_, "Reco_ele_MVAIso[Reco_ele_size]/F");
+  tree_->Branch("Reco_ele_MVAId", Reco_ele_MVAId_, "Reco_ele_MVAId[Reco_ele_size]/F");
+  tree_->Branch("Reco_ele_MVAIsoWP95", Reco_ele_MVAIsoWP95_, "Reco_ele_MVAIsoWP95[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_MVAIsoWP90", Reco_ele_MVAIsoWP90_, "Reco_ele_MVAIsoWP90[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_MVAIsoWP85", Reco_ele_MVAIsoWP85_, "Reco_ele_MVAIsoWP85[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_MVAIsoWP80", Reco_ele_MVAIsoWP80_, "Reco_ele_MVAIsoWP80[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_MVAIdWP95", Reco_ele_MVAIdWP95_, "Reco_ele_MVAIdWP95[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_MVAIdWP90", Reco_ele_MVAIdWP90_, "Reco_ele_MVAIdWP90[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_MVAIdWP85", Reco_ele_MVAIdWP85_, "Reco_ele_MVAIdWP85[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_MVAIdWP80", Reco_ele_MVAIdWP80_, "Reco_ele_MVAIdWP80[Reco_ele_size]/S");
+  
+  // Cut-based ID Working Points
+  tree_->Branch("Reco_ele_CutIdWP95", Reco_ele_CutIdWP95_, "Reco_ele_CutIdWP95[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_CutIdWP90", Reco_ele_CutIdWP90_, "Reco_ele_CutIdWP90[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_CutIdWP80", Reco_ele_CutIdWP80_, "Reco_ele_CutIdWP80[Reco_ele_size]/S");
+  tree_->Branch("Reco_ele_CutIdWP70", Reco_ele_CutIdWP70_, "Reco_ele_CutIdWP70[Reco_ele_size]/S");
+  
+  // Energy corrections
+  tree_->Branch("Reco_ele_rawPt", Reco_ele_rawPt_, "Reco_ele_rawPt[Reco_ele_size]/F");
+  tree_->Branch("Reco_ele_rawEcalEnergy", Reco_ele_rawEcalEnergy_, "Reco_ele_rawEcalEnergy[Reco_ele_size]/F");
 
   tree_->Branch("Reco_ee_size", &Reco_ee_size_, "Reco_ee_size/I");
   tree_->Branch("Reco_ee_pt", &Reco_ee_pt_);
@@ -203,6 +229,14 @@ void HiOniaElectronAnalyzer::initTree() {
   tree_->Branch("Reco_ee_ele1Idx", Reco_ee_ele1Idx_, "Reco_ee_ele1Idx[Reco_ee_size]/S");
   tree_->Branch("Reco_ee_ele2Idx", Reco_ee_ele2Idx_, "Reco_ee_ele2Idx[Reco_ee_size]/S");
   tree_->Branch("Reco_ee_trigBits", Reco_ee_trigBits_, "Reco_ee_trigBits[Reco_ee_size]/l");
+  
+  // Gen-matching branches (MC only)
+  if (storeGenInfo_ && isMC_) {
+    tree_->Branch("Reco_ee_isGenMatched", Reco_ee_isGenMatched_, "Reco_ee_isGenMatched[Reco_ee_size]/S");
+    tree_->Branch("Reco_ee_matchedGenIdx", Reco_ee_matchedGenIdx_, "Reco_ee_matchedGenIdx[Reco_ee_size]/S");
+    tree_->Branch("Reco_ee_gen_ele1_dR", Reco_ee_gen_ele1_dR_, "Reco_ee_gen_ele1_dR[Reco_ee_size]/F");
+    tree_->Branch("Reco_ee_gen_ele2_dR", Reco_ee_gen_ele2_dR_, "Reco_ee_gen_ele2_dR[Reco_ee_size]/F");
+  }
 
   if (storeGenInfo_ && isMC_) {
     tree_->Branch("Gen_ele_size", &Gen_ele_size_, "Gen_ele_size/I");
@@ -213,6 +247,16 @@ void HiOniaElectronAnalyzer::initTree() {
     tree_->Branch("Gen_ele_mass", &Gen_ele_mass_);
     tree_->Branch("Gen_ele_pdgId", Gen_ele_pdgId_, "Gen_ele_pdgId[Gen_ele_size]/I");
     tree_->Branch("Gen_ele_motherId", Gen_ele_motherId_, "Gen_ele_motherId[Gen_ele_size]/I");
+
+    tree_->Branch("Gen_ee_size", &Gen_ee_size_, "Gen_ee_size/I");
+    tree_->Branch("Gen_ee_pt", &Gen_ee_pt_);
+    tree_->Branch("Gen_ee_eta", &Gen_ee_eta_);
+    tree_->Branch("Gen_ee_phi", &Gen_ee_phi_);
+    tree_->Branch("Gen_ee_y", &Gen_ee_y_);
+    tree_->Branch("Gen_ee_mass", &Gen_ee_mass_);
+    tree_->Branch("Gen_ee_charge", Gen_ee_charge_, "Gen_ee_charge[Gen_ee_size]/S");
+    tree_->Branch("Gen_ee_ele1Idx", Gen_ee_ele1Idx_, "Gen_ee_ele1Idx[Gen_ee_size]/S");
+    tree_->Branch("Gen_ee_ele2Idx", Gen_ee_ele2Idx_, "Gen_ee_ele2Idx[Gen_ee_size]/S");
   }
 }
 
@@ -244,6 +288,10 @@ void HiOniaElectronAnalyzer::initEvent() {
   Reco_ee_y_.clear();
   Reco_ee_mass_.clear();
   std::fill_n(Reco_ee_trigBits_, Max_ee_size, 0ULL);
+  std::fill_n(Reco_ee_isGenMatched_, Max_ee_size, static_cast<Short_t>(0));
+  std::fill_n(Reco_ee_matchedGenIdx_, Max_ee_size, static_cast<Short_t>(-1));
+  std::fill_n(Reco_ee_gen_ele1_dR_, Max_ee_size, 999.9f);
+  std::fill_n(Reco_ee_gen_ele2_dR_, Max_ee_size, 999.9f);
 
   Gen_ele_size_ = 0;
   Gen_ele_pt_.clear();
@@ -251,6 +299,13 @@ void HiOniaElectronAnalyzer::initEvent() {
   Gen_ele_phi_.clear();
   Gen_ele_y_.clear();
   Gen_ele_mass_.clear();
+
+  Gen_ee_size_ = 0;
+  Gen_ee_pt_.clear();
+  Gen_ee_eta_.clear();
+  Gen_ee_phi_.clear();
+  Gen_ee_y_.clear();
+  Gen_ee_mass_.clear();
 
   std::fill(triggerAccepts_.begin(), triggerAccepts_.end(), false);
 }
@@ -463,6 +518,30 @@ void HiOniaElectronAnalyzer::fillRecoElectrons(const edm::Event& iEvent) {
     }
     Reco_ele_convVeto_[idx] = convVeto;
 
+    // MVA-based ID and Isolation from HIElectronInfoProducer
+    Reco_ele_MVAIso_[idx] = ele.hasUserFloat("hiMVAIso") ? ele.userFloat("hiMVAIso") : kInvalidFloat;
+    Reco_ele_MVAId_[idx] = ele.hasUserFloat("hiMVAId") ? ele.userFloat("hiMVAId") : kInvalidFloat;
+    
+    Reco_ele_MVAIsoWP95_[idx] = ele.hasUserInt("hiMVAIsoWP95") ? ele.userInt("hiMVAIsoWP95") : kInvalidShort;
+    Reco_ele_MVAIsoWP90_[idx] = ele.hasUserInt("hiMVAIsoWP90") ? ele.userInt("hiMVAIsoWP90") : kInvalidShort;
+    Reco_ele_MVAIsoWP85_[idx] = ele.hasUserInt("hiMVAIsoWP85") ? ele.userInt("hiMVAIsoWP85") : kInvalidShort;
+    Reco_ele_MVAIsoWP80_[idx] = ele.hasUserInt("hiMVAIsoWP80") ? ele.userInt("hiMVAIsoWP80") : kInvalidShort;
+    
+    Reco_ele_MVAIdWP95_[idx] = ele.hasUserInt("hiMVAIdWP95") ? ele.userInt("hiMVAIdWP95") : kInvalidShort;
+    Reco_ele_MVAIdWP90_[idx] = ele.hasUserInt("hiMVAIdWP90") ? ele.userInt("hiMVAIdWP90") : kInvalidShort;
+    Reco_ele_MVAIdWP85_[idx] = ele.hasUserInt("hiMVAIdWP85") ? ele.userInt("hiMVAIdWP85") : kInvalidShort;
+    Reco_ele_MVAIdWP80_[idx] = ele.hasUserInt("hiMVAIdWP80") ? ele.userInt("hiMVAIdWP80") : kInvalidShort;
+    
+    // Cut-based ID Working Points
+    Reco_ele_CutIdWP95_[idx] = ele.hasUserInt("hiCutIdWP95") ? ele.userInt("hiCutIdWP95") : kInvalidShort;
+    Reco_ele_CutIdWP90_[idx] = ele.hasUserInt("hiCutIdWP90") ? ele.userInt("hiCutIdWP90") : kInvalidShort;
+    Reco_ele_CutIdWP80_[idx] = ele.hasUserInt("hiCutIdWP80") ? ele.userInt("hiCutIdWP80") : kInvalidShort;
+    Reco_ele_CutIdWP70_[idx] = ele.hasUserInt("hiCutIdWP70") ? ele.userInt("hiCutIdWP70") : kInvalidShort;
+    
+    // Energy corrections
+    Reco_ele_rawPt_[idx] = ele.hasUserFloat("rawPt") ? ele.userFloat("rawPt") : ele.pt();
+    Reco_ele_rawEcalEnergy_[idx] = ele.hasUserFloat("rawEcalEnergy") ? ele.userFloat("rawEcalEnergy") : ele.ecalEnergy();
+
     Reco_ele_trigBits_[idx] = 0ULL;
 
     ++Reco_ele_size_;
@@ -552,7 +631,72 @@ void HiOniaElectronAnalyzer::fillRecoDielectrons(const edm::Event& iEvent) {
     ++Reco_ee_size_;
   }
 
+  // Set final size based on dielectron vectors (not electron!)
   Reco_ee_size_ = static_cast<Int_t>(Reco_ee_pt_.size());
+  
+  // Perform daughter-by-daughter gen matching if MC
+  if (storeGenInfo_ && isMC_ && Gen_ee_size_ > 0 && Gen_ele_size_ > 0) {
+    const float deltaR_cut = 0.1f;  // Nominal matching threshold
+    
+    // Loop over all reconstructed dielectron pairs
+    for (Int_t iee = 0; iee < Reco_ee_size_; ++iee) {
+      Short_t ele1Idx = Reco_ee_ele1Idx_[iee];
+      Short_t ele2Idx = Reco_ee_ele2Idx_[iee];
+      
+      // Safety check
+      if (ele1Idx < 0 || ele1Idx >= static_cast<Short_t>(Reco_ele_pt_.size()) ||
+          ele2Idx < 0 || ele2Idx >= static_cast<Short_t>(Reco_ele_pt_.size())) {
+        continue;
+      }
+      
+      float ele1_eta = Reco_ele_eta_[ele1Idx];
+      float ele1_phi = Reco_ele_phi_[ele1Idx];
+      Short_t ele1_charge = Reco_ele_charge_[ele1Idx];
+      
+      float ele2_eta = Reco_ele_eta_[ele2Idx];
+      float ele2_phi = Reco_ele_phi_[ele2Idx];
+      Short_t ele2_charge = Reco_ele_charge_[ele2Idx];
+      
+      // Try to match to a Gen_ee
+      for (Int_t igen = 0; igen < Gen_ee_size_; ++igen) {
+        Short_t genEle1Idx = Gen_ee_ele1Idx_[igen];
+        Short_t genEle2Idx = Gen_ee_ele2Idx_[igen];
+        
+        // Safety check
+        if (genEle1Idx < 0 || genEle1Idx >= Gen_ele_size_ ||
+            genEle2Idx < 0 || genEle2Idx >= Gen_ele_size_) {
+          continue;
+        }
+        
+        // Get gen electron charges from pdgId (e- = 11, e+ = -11)
+        Short_t genCharge1 = (Gen_ele_pdgId_[genEle1Idx] == 11) ? -1 : +1;
+        Short_t genCharge2 = (Gen_ele_pdgId_[genEle2Idx] == 11) ? -1 : +1;
+        
+        // Calculate deltaR for daughter 1
+        float dEta1 = ele1_eta - Gen_ele_eta_[genEle1Idx];
+        float dPhi1 = reco::deltaPhi(ele1_phi, Gen_ele_phi_[genEle1Idx]);
+        float dR1 = std::sqrt(dEta1*dEta1 + dPhi1*dPhi1);
+        
+        // Calculate deltaR for daughter 2
+        float dEta2 = ele2_eta - Gen_ele_eta_[genEle2Idx];
+        float dPhi2 = reco::deltaPhi(ele2_phi, Gen_ele_phi_[genEle2Idx]);
+        float dR2 = std::sqrt(dEta2*dEta2 + dPhi2*dPhi2);
+        
+        // Check if both daughters match with correct charge
+        bool daughter1_matched = (ele1_charge == genCharge1) && (dR1 < deltaR_cut);
+        bool daughter2_matched = (ele2_charge == genCharge2) && (dR2 < deltaR_cut);
+        
+        // If both daughters match, we have a matched dielectron
+        if (daughter1_matched && daughter2_matched) {
+          Reco_ee_isGenMatched_[iee] = 1;
+          Reco_ee_matchedGenIdx_[iee] = static_cast<Short_t>(igen);
+          Reco_ee_gen_ele1_dR_[iee] = dR1;
+          Reco_ee_gen_ele2_dR_[iee] = dR2;
+          break;  // Take first match
+        }
+      }
+    }
+  }
 }
 
 void HiOniaElectronAnalyzer::fillGeneratorInfo(const edm::Event& iEvent) {
@@ -564,7 +708,10 @@ void HiOniaElectronAnalyzer::fillGeneratorInfo(const edm::Event& iEvent) {
   if (!genParticles.isValid())
     return;
 
-  for (const auto& gen : *genParticles) {
+  // Collect generated electrons
+  std::vector<size_t> genElectronIndices;
+  for (size_t i = 0; i < genParticles->size(); ++i) {
+    const auto& gen = (*genParticles)[i];
     if (std::abs(gen.pdgId()) != 11)
       continue;
     if (Gen_ele_size_ >= Max_ele_size)
@@ -578,10 +725,43 @@ void HiOniaElectronAnalyzer::fillGeneratorInfo(const edm::Event& iEvent) {
     Gen_ele_mass_.push_back(static_cast<float>(p4.M()));
     Gen_ele_pdgId_[Gen_ele_size_] = gen.pdgId();
     Gen_ele_motherId_[Gen_ele_size_] = gen.mother() ? gen.mother()->pdgId() : 0;
+    
+    genElectronIndices.push_back(i);
     ++Gen_ele_size_;
   }
 
   Gen_ele_size_ = static_cast<Int_t>(Gen_ele_pt_.size());
+
+  // Create dielectron pairs from generated electrons
+  for (size_t i = 0; i < genElectronIndices.size(); ++i) {
+    for (size_t j = i + 1; j < genElectronIndices.size(); ++j) {
+      if (Gen_ee_size_ >= Max_ee_size)
+        break;
+
+      const auto& gen1 = (*genParticles)[genElectronIndices[i]];
+      const auto& gen2 = (*genParticles)[genElectronIndices[j]];
+
+      // Create dielectron 4-vector
+      const auto p4_ee = gen1.p4() + gen2.p4();
+      
+      const auto idx = Gen_ee_size_;
+      Gen_ee_pt_.push_back(static_cast<float>(p4_ee.pt()));
+      Gen_ee_eta_.push_back(static_cast<float>(p4_ee.eta()));
+      Gen_ee_phi_.push_back(static_cast<float>(p4_ee.phi()));
+      Gen_ee_y_.push_back(static_cast<float>(p4_ee.Rapidity()));
+      Gen_ee_mass_.push_back(static_cast<float>(p4_ee.M()));
+      
+      Gen_ee_charge_[idx] = gen1.charge() + gen2.charge();
+      Gen_ee_ele1Idx_[idx] = static_cast<Short_t>(i);
+      Gen_ee_ele2Idx_[idx] = static_cast<Short_t>(j);
+
+      ++Gen_ee_size_;
+    }
+    if (Gen_ee_size_ >= Max_ee_size)
+      break;
+  }
+
+  Gen_ee_size_ = static_cast<Int_t>(Gen_ee_pt_.size());
 }
 
 std::string HiOniaElectronAnalyzer::resolveTriggerName(const std::string& requested,

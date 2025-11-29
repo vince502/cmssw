@@ -277,4 +277,4 @@ void pat::MuonUnpacker::fillDescriptions(edm::ConfigurationDescriptions& descrip
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 using namespace pat;
-DEFINE_FWK_MODULE(MuonUnpacker);
+//DEFINE_FWK_MODULE(MuonUnpacker);

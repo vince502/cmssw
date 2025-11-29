@@ -451,6 +451,50 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userFloat["ele2PFNeuIso"] = pfIso2.sumNeutralHadronEt;
       userFloat["ele1PFPhoIso"] = pfIso1.sumPhotonEt;
       userFloat["ele2PFPhoIso"] = pfIso2.sumPhotonEt;
+      userFloat["ele1PFPUIso"] = pfIso1.sumPUPt;
+      userFloat["ele2PFPUIso"] = pfIso2.sumPUPt;
+      
+      // MVA-based ID and Isolation from HIElectronInfoProducer
+      // These are added as userFloat by HIElectronInfoProducer
+      userFloat["ele1MVAIso"] = it.hasUserFloat("hiMVAIso") ? it.userFloat("hiMVAIso") : -99.f;
+      userFloat["ele2MVAIso"] = it2.hasUserFloat("hiMVAIso") ? it2.userFloat("hiMVAIso") : -99.f;
+      userFloat["ele1MVAId"] = it.hasUserFloat("hiMVAId") ? it.userFloat("hiMVAId") : -99.f;
+      userFloat["ele2MVAId"] = it2.hasUserFloat("hiMVAId") ? it2.userFloat("hiMVAId") : -99.f;
+      
+      // MVA Working Points
+      userInt["ele1MVAIsoWP95"] = it.hasUserInt("hiMVAIsoWP95") ? it.userInt("hiMVAIsoWP95") : -1;
+      userInt["ele2MVAIsoWP95"] = it2.hasUserInt("hiMVAIsoWP95") ? it2.userInt("hiMVAIsoWP95") : -1;
+      userInt["ele1MVAIsoWP90"] = it.hasUserInt("hiMVAIsoWP90") ? it.userInt("hiMVAIsoWP90") : -1;
+      userInt["ele2MVAIsoWP90"] = it2.hasUserInt("hiMVAIsoWP90") ? it2.userInt("hiMVAIsoWP90") : -1;
+      userInt["ele1MVAIsoWP85"] = it.hasUserInt("hiMVAIsoWP85") ? it.userInt("hiMVAIsoWP85") : -1;
+      userInt["ele2MVAIsoWP85"] = it2.hasUserInt("hiMVAIsoWP85") ? it2.userInt("hiMVAIsoWP85") : -1;
+      userInt["ele1MVAIsoWP80"] = it.hasUserInt("hiMVAIsoWP80") ? it.userInt("hiMVAIsoWP80") : -1;
+      userInt["ele2MVAIsoWP80"] = it2.hasUserInt("hiMVAIsoWP80") ? it2.userInt("hiMVAIsoWP80") : -1;
+      
+      userInt["ele1MVAIdWP95"] = it.hasUserInt("hiMVAIdWP95") ? it.userInt("hiMVAIdWP95") : -1;
+      userInt["ele2MVAIdWP95"] = it2.hasUserInt("hiMVAIdWP95") ? it2.userInt("hiMVAIdWP95") : -1;
+      userInt["ele1MVAIdWP90"] = it.hasUserInt("hiMVAIdWP90") ? it.userInt("hiMVAIdWP90") : -1;
+      userInt["ele2MVAIdWP90"] = it2.hasUserInt("hiMVAIdWP90") ? it2.userInt("hiMVAIdWP90") : -1;
+      userInt["ele1MVAIdWP85"] = it.hasUserInt("hiMVAIdWP85") ? it.userInt("hiMVAIdWP85") : -1;
+      userInt["ele2MVAIdWP85"] = it2.hasUserInt("hiMVAIdWP85") ? it2.userInt("hiMVAIdWP85") : -1;
+      userInt["ele1MVAIdWP80"] = it.hasUserInt("hiMVAIdWP80") ? it.userInt("hiMVAIdWP80") : -1;
+      userInt["ele2MVAIdWP80"] = it2.hasUserInt("hiMVAIdWP80") ? it2.userInt("hiMVAIdWP80") : -1;
+      
+      // Cut-based ID Working Points
+      userInt["ele1CutIdWP95"] = it.hasUserInt("hiCutIdWP95") ? it.userInt("hiCutIdWP95") : -1;
+      userInt["ele2CutIdWP95"] = it2.hasUserInt("hiCutIdWP95") ? it2.userInt("hiCutIdWP95") : -1;
+      userInt["ele1CutIdWP90"] = it.hasUserInt("hiCutIdWP90") ? it.userInt("hiCutIdWP90") : -1;
+      userInt["ele2CutIdWP90"] = it2.hasUserInt("hiCutIdWP90") ? it2.userInt("hiCutIdWP90") : -1;
+      userInt["ele1CutIdWP80"] = it.hasUserInt("hiCutIdWP80") ? it.userInt("hiCutIdWP80") : -1;
+      userInt["ele2CutIdWP80"] = it2.hasUserInt("hiCutIdWP80") ? it2.userInt("hiCutIdWP80") : -1;
+      userInt["ele1CutIdWP70"] = it.hasUserInt("hiCutIdWP70") ? it.userInt("hiCutIdWP70") : -1;
+      userInt["ele2CutIdWP70"] = it2.hasUserInt("hiCutIdWP70") ? it2.userInt("hiCutIdWP70") : -1;
+      
+      // Energy corrections (rawPt and rawEcalEnergy from CorrectedElectronProducer)
+      userFloat["ele1RawPt"] = it.hasUserFloat("rawPt") ? it.userFloat("rawPt") : it.pt();
+      userFloat["ele2RawPt"] = it2.hasUserFloat("rawPt") ? it2.userFloat("rawPt") : it2.pt();
+      userFloat["ele1RawEcalEnergy"] = it.hasUserFloat("rawEcalEnergy") ? it.userFloat("rawEcalEnergy") : it.ecalEnergy();
+      userFloat["ele2RawEcalEnergy"] = it2.hasUserFloat("rawEcalEnergy") ? it2.userFloat("rawEcalEnergy") : it2.ecalEnergy();
 
       const bool haveTriggerInfo = doTriggerMatch_ && triggerResultsPtr != nullptr && !resolvedTriggerPaths.empty();
       uint64_t candTrigBits = 0ULL;

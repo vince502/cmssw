@@ -47,7 +47,17 @@ onia2ElectronElectronPatLoose = onia2ElectronElectronPAT.clone(
 )
 
 
-def setupOnia2EEForMiniAOD(process, producer='onia2ElectronElectronPatGlbGlb'):
+def setupOnia2EEForMiniAOD(process, producer='onia2ElectronElectronPatGlbGlb', runEnergyCorrections=True, runHIElectronID=True, isMC=False):
+    """
+    Setup Onia2EE for MiniAOD analysis with electron corrections and HI ID/ISO
+    
+    Args:
+        process: CMSSW process
+        producer: Name of the onia2EE producer (default: 'onia2ElectronElectronPatGlbGlb')
+        runEnergyCorrections: Apply energy scale corrections (default: True)
+        runHIElectronID: Apply HI-specific electron ID and isolation (default: True)
+        isMC: True for MC, False for data (default: False)
+    """
     if not hasattr(process, producer):
         return process
 
@@ -57,8 +67,34 @@ def setupOnia2EEForMiniAOD(process, producer='onia2ElectronElectronPatGlbGlb'):
     module = getattr(process, producer)
     module.srcTracks = cms.InputTag('unpackedTracksAndVertices')
     module.primaryVertexTag = cms.InputTag('unpackedTracksAndVertices')
-
-    if hasattr(process, 'skim_path'):
-        process.skim_path.insert(0, process.unpackedTracksAndVertices)
+    
+    # Configure electron corrections and ID if requested
+    if runEnergyCorrections or runHIElectronID:
+        from HiSkim.HiOnia2EE.electronCorrectionAndID_cff import configureElectronCorrectionAndID, updateOnia2EEProducer
+        
+        # Setup correction and ID sequence
+        configureElectronCorrectionAndID(process, isMC=isMC)
+        
+        # Update producer to use corrected electrons
+        if runHIElectronID:
+            updateOnia2EEProducer(process, producer)
+        elif runEnergyCorrections:
+            # Use corrected electrons without HI ID
+            module.electrons = cms.InputTag('correctedElectrons')
+        
+        # Insert correction sequence before the producer
+        if hasattr(process, 'skim_path'):
+            # Find the producer in the path
+            producerModule = getattr(process, producer)
+            # Insert sequences at the beginning
+            process.skim_path.insert(0, process.unpackedTracksAndVertices)
+            process.skim_path.insert(1, process.electronCorrectionAndIDSequence)
+        else:
+            # If no skim_path, user needs to add these manually
+            print("WARNING: No 'skim_path' found. Please add 'process.unpackedTracksAndVertices' and 'process.electronCorrectionAndIDSequence' to your path manually.")
+    else:
+        # Just add unpacked tracks without corrections
+        if hasattr(process, 'skim_path'):
+            process.skim_path.insert(0, process.unpackedTracksAndVertices)
 
     return process

@@ -167,6 +167,28 @@ private:
   Float_t Reco_ele_pfPUIso_[Max_ele_size];
   Short_t Reco_ele_convVeto_[Max_ele_size];
   ULong64_t Reco_ele_trigBits_[Max_ele_size];
+  
+  // MVA-based ID and Isolation
+  Float_t Reco_ele_MVAIso_[Max_ele_size];
+  Float_t Reco_ele_MVAId_[Max_ele_size];
+  Short_t Reco_ele_MVAIsoWP95_[Max_ele_size];
+  Short_t Reco_ele_MVAIsoWP90_[Max_ele_size];
+  Short_t Reco_ele_MVAIsoWP85_[Max_ele_size];
+  Short_t Reco_ele_MVAIsoWP80_[Max_ele_size];
+  Short_t Reco_ele_MVAIdWP95_[Max_ele_size];
+  Short_t Reco_ele_MVAIdWP90_[Max_ele_size];
+  Short_t Reco_ele_MVAIdWP85_[Max_ele_size];
+  Short_t Reco_ele_MVAIdWP80_[Max_ele_size];
+  
+  // Cut-based ID Working Points
+  Short_t Reco_ele_CutIdWP95_[Max_ele_size];
+  Short_t Reco_ele_CutIdWP90_[Max_ele_size];
+  Short_t Reco_ele_CutIdWP80_[Max_ele_size];
+  Short_t Reco_ele_CutIdWP70_[Max_ele_size];
+  
+  // Energy corrections
+  Float_t Reco_ele_rawPt_[Max_ele_size];
+  Float_t Reco_ele_rawEcalEnergy_[Max_ele_size];
 
   // Dielectron collections
   Int_t Reco_ee_size_;
@@ -182,6 +204,12 @@ private:
   Short_t Reco_ee_ele1Idx_[Max_ee_size];
   Short_t Reco_ee_ele2Idx_[Max_ee_size];
   ULong64_t Reco_ee_trigBits_[Max_ee_size];
+  
+  // Gen-matching info (MC only)
+  Short_t Reco_ee_isGenMatched_[Max_ee_size];
+  Short_t Reco_ee_matchedGenIdx_[Max_ee_size];
+  Float_t Reco_ee_gen_ele1_dR_[Max_ee_size];
+  Float_t Reco_ee_gen_ele2_dR_[Max_ee_size];
 
   // Generator info (if requested)
   Int_t Gen_ele_size_;
@@ -192,6 +220,16 @@ private:
   std::vector<float> Gen_ele_mass_;
   Int_t Gen_ele_pdgId_[Max_ele_size];
   Int_t Gen_ele_motherId_[Max_ele_size];
+
+  Int_t Gen_ee_size_;
+  std::vector<float> Gen_ee_pt_;
+  std::vector<float> Gen_ee_eta_;
+  std::vector<float> Gen_ee_phi_;
+  std::vector<float> Gen_ee_y_;
+  std::vector<float> Gen_ee_mass_;
+  Short_t Gen_ee_charge_[Max_ee_size];
+  Short_t Gen_ee_ele1Idx_[Max_ee_size];
+  Short_t Gen_ee_ele2Idx_[Max_ee_size];
 
   // Internal caches for trigger decisions
   std::vector<unsigned int> triggerIndices_;

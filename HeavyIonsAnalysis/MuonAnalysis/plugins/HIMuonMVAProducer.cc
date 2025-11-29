@@ -208,4 +208,4 @@ void pat::HIMuonMVAProducer::fillDescriptions(edm::ConfigurationDescriptions& de
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 using namespace pat;
-DEFINE_FWK_MODULE(HIMuonMVAProducer);
+//DEFINE_FWK_MODULE(HIMuonMVAProducer);

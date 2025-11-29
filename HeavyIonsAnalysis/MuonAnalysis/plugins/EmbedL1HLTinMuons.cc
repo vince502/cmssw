@@ -144,4 +144,4 @@ void pat::EmbedL1HLTinMuons::fillDescriptions(edm::ConfigurationDescriptions& de
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 using namespace pat;
-DEFINE_FWK_MODULE(EmbedL1HLTinMuons);
+//DEFINE_FWK_MODULE(EmbedL1HLTinMuons);

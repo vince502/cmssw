@@ -52,4 +52,4 @@ void pat::EmbedMCinMuons::fillDescriptions(edm::ConfigurationDescriptions& descr
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 using namespace pat;
-DEFINE_FWK_MODULE(EmbedMCinMuons);
+//DEFINE_FWK_MODULE(EmbedMCinMuons);
