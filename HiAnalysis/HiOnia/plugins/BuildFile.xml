@@ -1,0 +1,3 @@
+<use   name="HiAnalysis/HiOnia"/>
+<use   name="CommonTools/Egamma"/>
+<flags EDM_PLUGIN="1"/>
