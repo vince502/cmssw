@@ -1,0 +1,299 @@
+# TrainingConfig.yaml
+# Configuration file for B meson XGBoost training
+# This file controls all aspects of the machine learning pipeline
+
+# Data configuration
+data:
+  # Input data file (Parquet format with features)
+  input_file: 'bmeson_data_with_features.parquet'
+  
+  # Target column for classification (signal=1, background=0)
+  target_column: 'signal_label'
+  
+  # B meson type column for type-specific analysis
+  bmeson_type_column: 'bMesonType'
+  
+  # Columns to exclude from training features
+  exclude_columns:
+    - 'runNb'
+    - 'eventNb' 
+    - 'lumiSection'
+    - 'signal_label'  # Target column
+    - 'bdt_score'     # Existing model scores
+    - 'bdt_prediction'
+  
+  # Data splitting parameters
+  test_size: 0.2      # Fraction for test set
+  val_size: 0.2       # Fraction for validation set (from remaining after test split)
+  random_state: 42    # Random seed for reproducibility
+
+# Feature engineering and selection
+features:
+  # Whether to apply feature selection
+  feature_selection: true
+  
+  # Number of top features to select
+  n_features: 50
+  
+  # Feature selection method: 'f_score', 'mutual_info'
+  selection_method: 'mutual_info'
+  
+  # Whether to apply feature scaling
+  scaling: true
+  
+  # Scaling method: 'standard', 'robust'
+  scaler_type: 'robust'
+
+# Class balancing and sampling
+sampling:
+  # Whether to balance signal/background classes
+  balance_classes: true
+  
+  # Sampling strategy: 'smote', 'undersample', 'none'
+  sampling_strategy: 'smote'
+  
+  # Number of neighbors for SMOTE
+  smote_k_neighbors: 5
+
+# XGBoost model configuration
+model:
+  # Objective function
+  objective: 'binary:logistic'
+  
+  # Evaluation metric
+  eval_metric: 'auc'
+  
+  # Whether to use GPU acceleration
+  use_gpu: false
+  
+  # Early stopping rounds
+  early_stopping_rounds: 100
+  
+  # Maximum number of trees (will be optimized if hyperparameter optimization is enabled)
+  n_estimators: 1000
+
+# Hyperparameter optimization with Optuna
+hyperparameter_optimization:
+  # Enable hyperparameter optimization
+  enabled: true
+  
+  # Number of optimization trials
+  n_trials: 100
+  
+  # Maximum optimization time in seconds (1 hour)
+  timeout: 3600
+  
+  # Cross-validation folds for optimization
+  cv_folds: 5
+  
+  # Scoring metric for optimization
+  scoring: 'roc_auc'
+  
+  # Parameter search space (will override fixed values)
+  parameter_ranges:
+    n_estimators:
+      min: 100
+      max: 2000
+    max_depth:
+      min: 3
+      max: 12
+    learning_rate:
+      min: 0.01
+      max: 0.3
+    subsample:
+      min: 0.6
+      max: 1.0
+    colsample_bytree:
+      min: 0.6
+      max: 1.0
+    reg_alpha:
+      min: 0
+      max: 10
+    reg_lambda:
+      min: 1
+      max: 10
+    min_child_weight:
+      min: 1
+      max: 10
+    gamma:
+      min: 0
+      max: 5
+
+# Cross-validation settings
+cross_validation:
+  # Enable cross-validation evaluation
+  enabled: true
+  
+  # Number of CV folds
+  cv_folds: 5
+  
+  # Use stratified CV (maintains class balance)
+  stratified: true
+
+# Output configuration
+output:
+  # Directory to save model and results
+  model_dir: 'models/bmeson_xgboost'
+  
+  # Save trained model
+  save_model: true
+  
+  # Save feature names and selection info
+  save_features: true
+  
+  # Save feature scaler
+  save_scaler: true
+  
+  # Save evaluation plots and figures
+  save_plots: true
+  
+  # Model versioning
+  version_name: 'v1.0'
+  
+  # Additional metadata to save
+  metadata:
+    description: 'B meson signal vs background XGBoost classifier'
+    physics_process: 'B+ → J/ψ K+, B0 → J/ψ K*0, Bc → J/ψ π+'
+    dataset_info: 'Heavy ion collisions, centrality-dependent analysis'
+
+# Physics-specific settings
+physics:
+  # B meson mass windows for signal/background definition
+  mass_windows:
+    # Signal region (GeV/c²)
+    signal:
+      width: 0.05  # ±50 MeV around nominal mass
+    
+    # Sideband regions for background (GeV/c²)
+    sideband_low:
+      min: -0.15   # -150 MeV
+      max: -0.10   # -100 MeV
+    sideband_high:
+      min: 0.10    # +100 MeV
+      max: 0.15    # +150 MeV
+  
+  # B meson type-specific settings
+  bmeson_types:
+    B_plus:
+      pdg_id: 521
+      mass: 5.27932  # GeV/c²
+      decay_channel: 'J/ψ K+'
+      enable: true
+    B_zero:
+      pdg_id: 511 
+      mass: 5.27964  # GeV/c²
+      decay_channel: 'J/ψ K*0'
+      enable: true
+    B_c:
+      pdg_id: 541
+      mass: 6.2756   # GeV/c²
+      decay_channel: 'J/ψ π+'
+      enable: false  # Enable when Bc data is available
+
+# Advanced training settings
+advanced:
+  # Class weights (alternative to sampling)
+  class_weights:
+    auto_balance: false  # If true, uses sklearn's 'balanced' mode
+    custom_weights:      # Custom class weights
+      background: 1.0
+      signal: 1.0
+  
+  # Feature importance analysis
+  feature_analysis:
+    enable_shap: true
+    shap_sample_size: 1000  # Number of samples for SHAP analysis
+    
+  # Model interpretation
+  interpretation:
+    create_decision_trees_plots: false
+    max_trees_to_plot: 3
+    
+  # Performance monitoring
+  monitoring:
+    log_training_progress: true
+    save_learning_curves: true
+    
+  # Reproducibility
+  reproducibility:
+    set_random_seeds: true
+    numpy_seed: 42
+    python_seed: 42
+
+# Hardware and performance settings
+performance:
+  # Number of CPU cores to use (-1 for all available)
+  n_jobs: -1
+  
+  # Memory settings
+  max_memory_gb: 8  # Maximum memory usage
+  
+  # Verbose output level (0: silent, 1: progress, 2: detailed)
+  verbose: 1
+  
+  # Enable parallel processing where possible
+  parallel_processing: true
+
+# Validation and testing
+validation:
+  # Test set evaluation settings
+  test_evaluation:
+    # Generate ROC curves
+    generate_roc_curves: true
+    
+    # Generate precision-recall curves  
+    generate_pr_curves: true
+    
+    # Feature importance analysis
+    analyze_feature_importance: true
+    
+    # B meson type-specific evaluation
+    evaluate_by_bmeson_type: true
+    
+    # Mass window analysis
+    analyze_mass_windows: true
+    
+    # Working point analysis
+    working_points:
+      signal_efficiencies: [0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.60, 0.50]
+  
+  # Model comparison settings
+  comparison:
+    enable_model_comparison: false
+    baseline_models: []  # Paths to baseline models for comparison
+
+# Deployment settings
+deployment:
+  # Model export formats
+  export_formats:
+    - 'xgboost_json'  # Native XGBoost format
+    - 'sklearn_pickle' # Sklearn wrapper
+    - 'onnx'          # ONNX format (if available)
+  
+  # Deployment metadata
+  deployment_info:
+    target_environment: 'research'
+    performance_requirements:
+      max_latency_ms: 100
+      min_throughput_hz: 10
+    
+  # Model monitoring in production
+  monitoring:
+    track_prediction_distribution: true
+    alert_on_drift: true
+    drift_threshold: 0.1
+
+# Logging and debugging
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: 'INFO'
+  
+  # Save detailed logs to file
+  save_to_file: true
+  log_file: 'training.log'
+  
+  # Enable debugging output
+  debug_mode: false
+  
+  # Profiling and timing
+  enable_profiling: false
