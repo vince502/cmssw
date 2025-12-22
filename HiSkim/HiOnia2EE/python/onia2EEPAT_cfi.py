@@ -40,9 +40,11 @@ onia2ElectronElectronPAT = cms.EDProducer('HiOnia2EEPAT',
     # electronIDType: "hardcoded" (default), "cutbased", "mva", "hiMVA", "none"
     # electronIDWP: working point (e.g., "loose", "medium", "tight", "wp90", "wp80", "95", "90", "85", "80")
     # electronIDName: explicit MiniAOD ID name (overrides electronIDWP if set)
+    # applyConversionVeto: reject electrons matched to photon conversions (default: True)
     electronIDType = cms.string("hardcoded"),
     electronIDWP = cms.string(""),
     electronIDName = cms.string(""),
+    applyConversionVeto = cms.bool(True),
 
     # trigger matching (optional)
     doTriggerMatching = cms.bool(False),
