@@ -108,9 +108,10 @@ private:
   bool requireL3Filter_;
 
   // Electron ID configuration
-  std::string electronIDType_;    // "hardcoded", "cutbased", "mva", "hiMVA"
+  std::string electronIDType_;    // "hardcoded", "cutbased", "mva", "hiMVA", "none"
   std::string electronIDWP_;      // working point: "loose", "medium", "tight", "wp90", "wp80", etc.
   std::string electronIDName_;    // full MiniAOD ID name if using cutbased/mva
+  bool applyConversionVeto_;      // apply conversion veto in electron selection
 
   InvariantMassFromVertex massCalculator;
   math::XYZPoint RefVtx;

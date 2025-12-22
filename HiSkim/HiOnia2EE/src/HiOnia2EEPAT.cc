@@ -117,6 +117,8 @@ HiOnia2EEPAT::HiOnia2EEPAT(const edm::ParameterSet &iConfig)
                   ? iConfig.getParameter<std::string>("electronIDWP") : "";
   electronIDName_ = iConfig.existsAs<std::string>("electronIDName") 
                     ? iConfig.getParameter<std::string>("electronIDName") : "";
+  applyConversionVeto_ = iConfig.existsAs<bool>("applyConversionVeto")
+                         ? iConfig.getParameter<bool>("applyConversionVeto") : true;
 
   produces<pat::CompositeCandidateCollection>("");
   produces<pat::CompositeCandidateCollection>("trielectron");
@@ -134,7 +136,8 @@ bool HiOnia2EEPAT::isGoodElectron(const pat::Electron *aElectron, const reco::Be
   if (aElectron->gsfTrack()->hitPattern().pixelLayersWithMeasurement() == 0) return false;
   if (fabs(aElectron->gsfTrack()->dxy(RefVtx)) >= 0.3) return false;
   if (fabs(aElectron->gsfTrack()->dz(RefVtx)) >= 20.) return false;
-  if (ConversionTools::hasMatchedConversion(*aElectron, conversions, beamSpot.position())) return false;
+  // Conversion veto - configurable (default: true for backwards compatibility)
+  if (applyConversionVeto_ && ConversionTools::hasMatchedConversion(*aElectron, conversions, beamSpot.position())) return false;
   if (!passElectronID(*aElectron)) return false;
   return true;
 }
