@@ -6,11 +6,14 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
 
+#include <TVector3.h>
+
 #include <cctype>
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <map>
 
 namespace {
   constexpr float kInvalidFloat = -9999.f;
@@ -252,15 +255,24 @@ void HiOniaElectronAnalyzer::initTree() {
   }
 
   if (storeGenInfo_ && isMC_) {
+    // Single electron gen info
     tree_->Branch("Gen_ele_size", &Gen_ele_size_, "Gen_ele_size/I");
     tree_->Branch("Gen_ele_pt", &Gen_ele_pt_);
     tree_->Branch("Gen_ele_eta", &Gen_ele_eta_);
     tree_->Branch("Gen_ele_phi", &Gen_ele_phi_);
     tree_->Branch("Gen_ele_y", &Gen_ele_y_);
     tree_->Branch("Gen_ele_mass", &Gen_ele_mass_);
+    tree_->Branch("Gen_ele_charge", Gen_ele_charge_, "Gen_ele_charge[Gen_ele_size]/S");
     tree_->Branch("Gen_ele_pdgId", Gen_ele_pdgId_, "Gen_ele_pdgId[Gen_ele_size]/I");
+    tree_->Branch("Gen_ele_status", Gen_ele_status_, "Gen_ele_status[Gen_ele_size]/I");
     tree_->Branch("Gen_ele_motherId", Gen_ele_motherId_, "Gen_ele_motherId[Gen_ele_size]/I");
+    tree_->Branch("Gen_ele_grandmotherId", Gen_ele_grandmotherId_, "Gen_ele_grandmotherId[Gen_ele_size]/I");
+    tree_->Branch("Gen_ele_vx", Gen_ele_vx_, "Gen_ele_vx[Gen_ele_size]/F");
+    tree_->Branch("Gen_ele_vy", Gen_ele_vy_, "Gen_ele_vy[Gen_ele_size]/F");
+    tree_->Branch("Gen_ele_vz", Gen_ele_vz_, "Gen_ele_vz[Gen_ele_size]/F");
+    tree_->Branch("Gen_ele_whichRec", Gen_ele_whichRec_, "Gen_ele_whichRec[Gen_ele_size]/S");
 
+    // Dielectron gen info (J/psi -> e+e-)
     tree_->Branch("Gen_ee_size", &Gen_ee_size_, "Gen_ee_size/I");
     tree_->Branch("Gen_ee_pt", &Gen_ee_pt_);
     tree_->Branch("Gen_ee_eta", &Gen_ee_eta_);
@@ -268,8 +280,15 @@ void HiOniaElectronAnalyzer::initTree() {
     tree_->Branch("Gen_ee_y", &Gen_ee_y_);
     tree_->Branch("Gen_ee_mass", &Gen_ee_mass_);
     tree_->Branch("Gen_ee_charge", Gen_ee_charge_, "Gen_ee_charge[Gen_ee_size]/S");
-    tree_->Branch("Gen_ee_ele1Idx", Gen_ee_ele1Idx_, "Gen_ee_ele1Idx[Gen_ee_size]/S");
-    tree_->Branch("Gen_ee_ele2Idx", Gen_ee_ele2Idx_, "Gen_ee_ele2Idx[Gen_ee_size]/S");
+    tree_->Branch("Gen_ee_elepl_idx", Gen_ee_elepl_idx_, "Gen_ee_elepl_idx[Gen_ee_size]/S");
+    tree_->Branch("Gen_ee_elemi_idx", Gen_ee_elemi_idx_, "Gen_ee_elemi_idx[Gen_ee_size]/S");
+    tree_->Branch("Gen_ee_momId", Gen_ee_momId_, "Gen_ee_momId[Gen_ee_size]/I");
+    tree_->Branch("Gen_ee_ctau", Gen_ee_ctau_, "Gen_ee_ctau[Gen_ee_size]/F");
+    tree_->Branch("Gen_ee_ctau3D", Gen_ee_ctau3D_, "Gen_ee_ctau3D[Gen_ee_size]/F");
+    tree_->Branch("Gen_ee_vx", Gen_ee_vx_, "Gen_ee_vx[Gen_ee_size]/F");
+    tree_->Branch("Gen_ee_vy", Gen_ee_vy_, "Gen_ee_vy[Gen_ee_size]/F");
+    tree_->Branch("Gen_ee_vz", Gen_ee_vz_, "Gen_ee_vz[Gen_ee_size]/F");
+    tree_->Branch("Gen_ee_whichRec", Gen_ee_whichRec_, "Gen_ee_whichRec[Gen_ee_size]/S");
   }
 }
 
@@ -693,8 +712,8 @@ void HiOniaElectronAnalyzer::fillRecoDielectrons(const edm::Event& iEvent) {
       
       // Try to match to a Gen_ee
       for (Int_t igen = 0; igen < Gen_ee_size_; ++igen) {
-        Short_t genEle1Idx = Gen_ee_ele1Idx_[igen];
-        Short_t genEle2Idx = Gen_ee_ele2Idx_[igen];
+        Short_t genEle1Idx = Gen_ee_elepl_idx_[igen];
+        Short_t genEle2Idx = Gen_ee_elemi_idx_[igen];
         
         // Safety check
         if (genEle1Idx < 0 || genEle1Idx >= Gen_ele_size_ ||
@@ -742,11 +761,19 @@ void HiOniaElectronAnalyzer::fillGeneratorInfo(const edm::Event& iEvent) {
   if (!genParticles.isValid())
     return;
 
-  // Collect generated electrons
-  std::vector<size_t> genElectronIndices;
+  // J/psi and Upsilon PDG IDs
+  const std::vector<int> oniaPDGs = {443, 100443, 553, 100553, 200553};  // J/psi, psi(2S), Upsilon(1S,2S,3S)
+  const double JpsiMass = 3.096916;  // GeV
+
+  // Map to store electron index by its gen particle pointer for matching
+  std::map<const reco::GenParticle*, int> genEleToIdx;
+
+  // First pass: Collect all final-state electrons (status == 1)
   for (size_t i = 0; i < genParticles->size(); ++i) {
     const auto& gen = (*genParticles)[i];
     if (std::abs(gen.pdgId()) != 11)
+      continue;
+    if (gen.status() != 1)  // Only final state electrons
       continue;
     if (Gen_ele_size_ >= Max_ele_size)
       break;
@@ -757,45 +784,173 @@ void HiOniaElectronAnalyzer::fillGeneratorInfo(const edm::Event& iEvent) {
     Gen_ele_phi_.push_back(static_cast<float>(p4.phi()));
     Gen_ele_y_.push_back(static_cast<float>(p4.Rapidity()));
     Gen_ele_mass_.push_back(static_cast<float>(p4.M()));
+    Gen_ele_charge_[Gen_ele_size_] = static_cast<Short_t>(gen.charge());
     Gen_ele_pdgId_[Gen_ele_size_] = gen.pdgId();
-    Gen_ele_motherId_[Gen_ele_size_] = gen.mother() ? gen.mother()->pdgId() : 0;
+    Gen_ele_status_[Gen_ele_size_] = gen.status();
     
-    genElectronIndices.push_back(i);
+    // Mother info
+    const reco::Candidate* mom = gen.mother();
+    Gen_ele_motherId_[Gen_ele_size_] = mom ? mom->pdgId() : 0;
+    
+    // Grandmother info
+    const reco::Candidate* gmom = (mom && mom->numberOfMothers() > 0) ? mom->mother() : nullptr;
+    Gen_ele_grandmotherId_[Gen_ele_size_] = gmom ? gmom->pdgId() : 0;
+    
+    // Vertex
+    Gen_ele_vx_[Gen_ele_size_] = static_cast<float>(gen.vx());
+    Gen_ele_vy_[Gen_ele_size_] = static_cast<float>(gen.vy());
+    Gen_ele_vz_[Gen_ele_size_] = static_cast<float>(gen.vz());
+    
+    // Initialize whichRec to -1 (not matched)
+    Gen_ele_whichRec_[Gen_ele_size_] = -1;
+    
+    genEleToIdx[&gen] = Gen_ele_size_;
     ++Gen_ele_size_;
   }
 
-  Gen_ele_size_ = static_cast<Int_t>(Gen_ele_pt_.size());
-
-  // Create dielectron pairs from generated electrons
-  for (size_t i = 0; i < genElectronIndices.size(); ++i) {
-    for (size_t j = i + 1; j < genElectronIndices.size(); ++j) {
-      if (Gen_ee_size_ >= Max_ee_size)
-        break;
-
-      const auto& gen1 = (*genParticles)[genElectronIndices[i]];
-      const auto& gen2 = (*genParticles)[genElectronIndices[j]];
-
-      // Create dielectron 4-vector
-      const auto p4_ee = gen1.p4() + gen2.p4();
-      
-      const auto idx = Gen_ee_size_;
-      Gen_ee_pt_.push_back(static_cast<float>(p4_ee.pt()));
-      Gen_ee_eta_.push_back(static_cast<float>(p4_ee.eta()));
-      Gen_ee_phi_.push_back(static_cast<float>(p4_ee.phi()));
-      Gen_ee_y_.push_back(static_cast<float>(p4_ee.Rapidity()));
-      Gen_ee_mass_.push_back(static_cast<float>(p4_ee.M()));
-      
-      Gen_ee_charge_[idx] = gen1.charge() + gen2.charge();
-      Gen_ee_ele1Idx_[idx] = static_cast<Short_t>(i);
-      Gen_ee_ele2Idx_[idx] = static_cast<Short_t>(j);
-
-      ++Gen_ee_size_;
-    }
+  // Second pass: Find J/psi/Upsilon/Z -> e+e- decays
+  // Also accept Z (23) for embedded samples
+  std::vector<int> resonancePDGs = {443, 100443, 553, 100553, 200553, 23};  // J/psi, psi(2S), Upsilon(1S,2S,3S), Z
+  
+  for (size_t i = 0; i < genParticles->size(); ++i) {
+    const auto& gen = (*genParticles)[i];
+    
+    // Check if this is a resonance
+    bool isResonance = std::find(resonancePDGs.begin(), resonancePDGs.end(), std::abs(gen.pdgId())) != resonancePDGs.end();
+    if (!isResonance)
+      continue;
+    if (gen.status() != 2 && !(std::abs(gen.pdgId()) == 23 && gen.status() == 62))  // Allow Z with status 62
+      continue;
+    if (gen.numberOfDaughters() < 2)
+      continue;
     if (Gen_ee_size_ >= Max_ee_size)
       break;
+
+    // Find electron daughters
+    const reco::GenParticle* elePlus = nullptr;
+    const reco::GenParticle* eleMinus = nullptr;
+    
+    for (size_t d = 0; d < gen.numberOfDaughters(); ++d) {
+      const reco::Candidate* dau = gen.daughter(d);
+      if (!dau) continue;
+      
+      // Follow decay chain to final state electron
+      while (dau && std::abs(dau->pdgId()) == 11 && dau->status() != 1 && dau->numberOfDaughters() > 0) {
+        dau = dau->daughter(0);
+      }
+      
+      if (dau && std::abs(dau->pdgId()) == 11 && dau->status() == 1) {
+        if (dau->pdgId() == -11)  // positron
+          elePlus = dynamic_cast<const reco::GenParticle*>(dau);
+        else if (dau->pdgId() == 11)  // electron
+          eleMinus = dynamic_cast<const reco::GenParticle*>(dau);
+      }
+    }
+
+    if (!elePlus || !eleMinus)
+      continue;
+
+    // Get indices in Gen_ele arrays
+    auto itPlus = genEleToIdx.find(elePlus);
+    auto itMinus = genEleToIdx.find(eleMinus);
+    if (itPlus == genEleToIdx.end() || itMinus == genEleToIdx.end())
+      continue;
+
+    const int idxPlus = itPlus->second;
+    const int idxMinus = itMinus->second;
+
+    // Fill dielectron info
+    const auto& p4 = gen.p4();
+    Gen_ee_pt_.push_back(static_cast<float>(p4.pt()));
+    Gen_ee_eta_.push_back(static_cast<float>(p4.eta()));
+    Gen_ee_phi_.push_back(static_cast<float>(p4.phi()));
+    Gen_ee_y_.push_back(static_cast<float>(p4.Rapidity()));
+    Gen_ee_mass_.push_back(static_cast<float>(p4.M()));
+    
+    Gen_ee_charge_[Gen_ee_size_] = 0;  // e+ e- always neutral
+    Gen_ee_elepl_idx_[Gen_ee_size_] = static_cast<Short_t>(idxPlus);
+    Gen_ee_elemi_idx_[Gen_ee_size_] = static_cast<Short_t>(idxMinus);
+    Gen_ee_momId_[Gen_ee_size_] = gen.pdgId();
+    
+    // Decay vertex
+    Gen_ee_vx_[Gen_ee_size_] = static_cast<float>(gen.vx());
+    Gen_ee_vy_[Gen_ee_size_] = static_cast<float>(gen.vy());
+    Gen_ee_vz_[Gen_ee_size_] = static_cast<float>(gen.vz());
+    
+    // Calculate ctau (proper decay length)
+    float ctau = -99.f;
+    float ctau3D = -99.f;
+    if (gen.numberOfMothers() > 0) {
+      const reco::Candidate* mom = gen.mother();
+      if (mom) {
+        // Production vertex of onia
+        TVector3 prodVtx(mom->vx(), mom->vy(), mom->vz());
+        // Decay vertex of onia (= electron vertex)
+        TVector3 decayVtx(gen.vx(), gen.vy(), gen.vz());
+        TVector3 momentum(gen.px(), gen.py(), gen.pz());
+        
+        TVector3 diff = decayVtx - prodVtx;
+        double mass = (std::abs(gen.pdgId()) == 443 || std::abs(gen.pdgId()) == 100443) ? JpsiMass : p4.M();
+        
+        if (momentum.Perp() > 0)
+          ctau = static_cast<float>(diff.Perp() * mass / momentum.Perp());
+        if (momentum.Mag() > 0)
+          ctau3D = static_cast<float>(diff.Mag() * mass / momentum.Mag());
+      }
+    }
+    Gen_ee_ctau_[Gen_ee_size_] = ctau * 10.0f;  // Convert to mm
+    Gen_ee_ctau3D_[Gen_ee_size_] = ctau3D * 10.0f;
+    
+    // Initialize whichRec to -1 (not matched)
+    Gen_ee_whichRec_[Gen_ee_size_] = -1;
+    
+    ++Gen_ee_size_;
   }
 
-  Gen_ee_size_ = static_cast<Int_t>(Gen_ee_pt_.size());
+  // Match gen electrons to reco electrons
+  for (int igen = 0; igen < Gen_ele_size_; ++igen) {
+    float minDR = 0.1f;  // Maximum deltaR for matching
+    int bestReco = -1;
+    
+    for (int irec = 0; irec < Reco_ele_size_; ++irec) {
+      float dEta = Gen_ele_eta_[igen] - Reco_ele_eta_[irec];
+      float dPhi = Gen_ele_phi_[igen] - Reco_ele_phi_[irec];
+      while (dPhi > M_PI) dPhi -= 2*M_PI;
+      while (dPhi < -M_PI) dPhi += 2*M_PI;
+      float dR = std::sqrt(dEta*dEta + dPhi*dPhi);
+      
+      // Also check charge match
+      if (dR < minDR && Gen_ele_charge_[igen] == Reco_ele_charge_[irec]) {
+        minDR = dR;
+        bestReco = irec;
+      }
+    }
+    Gen_ele_whichRec_[igen] = static_cast<Short_t>(bestReco);
+  }
+
+  // Match gen dielectrons to reco dielectrons
+  for (int igen = 0; igen < Gen_ee_size_; ++igen) {
+    int recoElePlus = Gen_ele_whichRec_[Gen_ee_elepl_idx_[igen]];
+    int recoEleMinus = Gen_ele_whichRec_[Gen_ee_elemi_idx_[igen]];
+    
+    if (recoElePlus < 0 || recoEleMinus < 0) {
+      Gen_ee_whichRec_[igen] = -1;
+      continue;
+    }
+    
+    // Find reco dielectron with these electrons
+    int bestReco = -1;
+    for (int irec = 0; irec < Reco_ee_size_; ++irec) {
+      int ele1 = Reco_ee_ele1Idx_[irec];
+      int ele2 = Reco_ee_ele2Idx_[irec];
+      if ((ele1 == recoElePlus && ele2 == recoEleMinus) ||
+          (ele1 == recoEleMinus && ele2 == recoElePlus)) {
+        bestReco = irec;
+        break;
+      }
+    }
+    Gen_ee_whichRec_[igen] = static_cast<Short_t>(bestReco);
+  }
 }
 
 std::string HiOniaElectronAnalyzer::resolveTriggerName(const std::string& requested,

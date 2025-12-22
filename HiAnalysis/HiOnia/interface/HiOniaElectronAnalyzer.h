@@ -205,21 +205,42 @@ private:
   Short_t Reco_ee_ele2Idx_[Max_ee_size];
   ULong64_t Reco_ee_trigBits_[Max_ee_size];
   
+  // Lifetime and DCA
+  Float_t Reco_ee_ctau_[Max_ee_size];
+  Float_t Reco_ee_ctauErr_[Max_ee_size];
+  Float_t Reco_ee_ctau3D_[Max_ee_size];
+  Float_t Reco_ee_ctauErr3D_[Max_ee_size];
+  Float_t Reco_ee_cosAlpha_[Max_ee_size];
+  Float_t Reco_ee_cosAlpha3D_[Max_ee_size];
+  Float_t Reco_ee_dca_[Max_ee_size];
+  
+  // Vertex position
+  Float_t Reco_ee_vtxX_[Max_ee_size];
+  Float_t Reco_ee_vtxY_[Max_ee_size];
+  Float_t Reco_ee_vtxZ_[Max_ee_size];
+  
   // Gen-matching info (MC only)
   Short_t Reco_ee_isGenMatched_[Max_ee_size];
   Short_t Reco_ee_matchedGenIdx_[Max_ee_size];
   Float_t Reco_ee_gen_ele1_dR_[Max_ee_size];
   Float_t Reco_ee_gen_ele2_dR_[Max_ee_size];
 
-  // Generator info (if requested)
+  // Generator info (if requested) - structured like hionia muon
   Int_t Gen_ele_size_;
   std::vector<float> Gen_ele_pt_;
   std::vector<float> Gen_ele_eta_;
   std::vector<float> Gen_ele_phi_;
   std::vector<float> Gen_ele_y_;
   std::vector<float> Gen_ele_mass_;
+  Short_t Gen_ele_charge_[Max_ele_size];
   Int_t Gen_ele_pdgId_[Max_ele_size];
+  Int_t Gen_ele_status_[Max_ele_size];
   Int_t Gen_ele_motherId_[Max_ele_size];
+  Int_t Gen_ele_grandmotherId_[Max_ele_size];
+  Float_t Gen_ele_vx_[Max_ele_size];
+  Float_t Gen_ele_vy_[Max_ele_size];
+  Float_t Gen_ele_vz_[Max_ele_size];
+  Short_t Gen_ele_whichRec_[Max_ele_size];  // Index of matched reco electron (-1 if not matched)
 
   Int_t Gen_ee_size_;
   std::vector<float> Gen_ee_pt_;
@@ -228,8 +249,15 @@ private:
   std::vector<float> Gen_ee_y_;
   std::vector<float> Gen_ee_mass_;
   Short_t Gen_ee_charge_[Max_ee_size];
-  Short_t Gen_ee_ele1Idx_[Max_ee_size];
-  Short_t Gen_ee_ele2Idx_[Max_ee_size];
+  Short_t Gen_ee_elepl_idx_[Max_ee_size];  // Index of positive electron
+  Short_t Gen_ee_elemi_idx_[Max_ee_size];  // Index of negative electron
+  Int_t Gen_ee_momId_[Max_ee_size];        // Mother PDG ID (e.g., 443 for J/psi)
+  Float_t Gen_ee_ctau_[Max_ee_size];       // Proper decay length (2D)
+  Float_t Gen_ee_ctau3D_[Max_ee_size];     // Proper decay length (3D)
+  Float_t Gen_ee_vx_[Max_ee_size];         // Decay vertex x
+  Float_t Gen_ee_vy_[Max_ee_size];         // Decay vertex y
+  Float_t Gen_ee_vz_[Max_ee_size];         // Decay vertex z
+  Short_t Gen_ee_whichRec_[Max_ee_size];   // Index of matched reco dielectron (-1 if not matched)
 
   // Internal caches for trigger decisions
   std::vector<unsigned int> triggerIndices_;

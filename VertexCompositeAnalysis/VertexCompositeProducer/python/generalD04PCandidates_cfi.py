@@ -39,6 +39,10 @@ generalD04PCandidates = cms.EDProducer("D04PProducer",
     dPtCut = cms.double(0.0),
 
     isWrongSign = cms.bool(False),
+    d0AbsYCut = cms.double(2.4),
+
+    # dEdx source (empty = disabled)
+    dedxSrc = cms.InputTag(""),
 
 # MVA 
 

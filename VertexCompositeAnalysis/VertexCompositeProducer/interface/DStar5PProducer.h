@@ -33,12 +33,15 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 
 #include "DataFormats/VertexReco/interface/Vertex.h"
-#include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+// #include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+#include "DataFormats/PatCandidates/interface/CompositeCandidate.h"
 
 #include "VertexCompositeAnalysis/VertexCompositeProducer/interface/DStar5PFitter.h"
 
 class DStar5PProducer : public edm::one::EDProducer<> {
 public:
+  using CC = pat::CompositeCandidate;
+  using CCC = pat::CompositeCandidateCollection;
   using MVACollection = std::vector<float>;
 
   explicit DStar5PProducer(const edm::ParameterSet&);

@@ -275,8 +275,10 @@ void BDiLeptonFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iS
     transientTracks.push_back(transTrack);
   }
 
-  // Loop over dilepton candidates
-  for (const auto& dilepton : *dileptonHandle) {
+  // Loop over dilepton candidates with index tracking
+  for (size_t dileptonIdx = 0; dileptonIdx < dileptonHandle->size(); dileptonIdx++) {
+    const auto& dilepton = (*dileptonHandle)[dileptonIdx];
+    
     if (!passDileptonCuts(dilepton)) continue;
     
     LeptonChannel channel = detectLeptonChannel(dilepton);
@@ -299,8 +301,8 @@ void BDiLeptonFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iS
       for (size_t i = 0; i < selectedTracks.size(); i++) {
         const auto& kaonTrack = selectedTracks[i];
         
-        bool skipTrack = (lepTrk1 == &(*kaonTrack) || lepTrk2 == &(*kaonTrack));
-        if (skipTrack) continue;
+        // Skip if track is same as lepton track (avoid self-fitting)
+        if (isSameTrack(lepTrk1, &(*kaonTrack)) || isSameTrack(lepTrk2, &(*kaonTrack))) continue;
 
         std::vector<reco::TransientTrack> bTracks;
         std::vector<double> bMasses;
@@ -324,6 +326,9 @@ void BDiLeptonFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iS
 
         pat::CompositeCandidate bPlus = createBPlus(dilepton, kaonTrack, *vtxPrimary, bVertex, channel);
         
+        // Store the dilepton index for matching with hionia tree
+        bPlus.addUserInt("jpsiIdx", static_cast<int>(dileptonIdx));
+        
         if (fabs(bPlus.mass() - bPlusMass) > bPlusMassCut) continue;
         if (bPlus.pt() < bPtCut) continue;
         if (fabs(bPlus.rapidity()) > bYCut) continue;
@@ -337,8 +342,8 @@ void BDiLeptonFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iS
       for (size_t i = 0; i < selectedTracks.size(); i++) {
         const auto& pionTrack = selectedTracks[i];
         
-        bool skipTrack = (lepTrk1 == &(*pionTrack) || lepTrk2 == &(*pionTrack));
-        if (skipTrack) continue;
+        // Skip if track is same as lepton track (avoid self-fitting)
+        if (isSameTrack(lepTrk1, &(*pionTrack)) || isSameTrack(lepTrk2, &(*pionTrack))) continue;
 
         std::vector<reco::TransientTrack> bcTracks;
         std::vector<double> bcMasses;
@@ -362,6 +367,9 @@ void BDiLeptonFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iS
 
         pat::CompositeCandidate bc = createBc(dilepton, pionTrack, *vtxPrimary, bcVertex, channel);
         
+        // Store the dilepton index for matching with hionia tree
+        bc.addUserInt("jpsiIdx", static_cast<int>(dileptonIdx));
+        
         if (fabs(bc.mass() - bcMass) > bcMassCut) continue;
         if (bc.pt() < bcPtCut) continue;
         if (fabs(bc.rapidity()) > bcYCut) continue;
@@ -381,9 +389,9 @@ void BDiLeptonFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iS
             if (track1->charge() * track2->charge() > 0) continue;
           }
           
-          bool skipTracks = (lepTrk1 == &(*track1) || lepTrk2 == &(*track1) ||
-                            lepTrk1 == &(*track2) || lepTrk2 == &(*track2));
-          if (skipTracks) continue;
+          // Skip if any track is same as lepton track (avoid self-fitting)
+          if (isSameTrack(lepTrk1, &(*track1)) || isSameTrack(lepTrk2, &(*track1)) ||
+              isSameTrack(lepTrk1, &(*track2)) || isSameTrack(lepTrk2, &(*track2))) continue;
 
           math::PtEtaPhiMLorentzVector kaonP4, pionP4;
           reco::TrackRef kaonTrack, pionTrack;
@@ -434,6 +442,9 @@ void BDiLeptonFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iS
           if (vtxChi2/vtxNdof > vtxChi2Cut || vtxProb < vtxProbCut) continue;
 
           pat::CompositeCandidate bZero = createBZero(dilepton, kaonTrack, pionTrack, *vtxPrimary, bVertex, channel);
+          
+          // Store the dilepton index for matching with hionia tree
+          bZero.addUserInt("jpsiIdx", static_cast<int>(dileptonIdx));
           
           if (fabs(bZero.mass() - bZeroMass) > bZeroMassCut) continue;
           if (bZero.pt() < bPtCut) continue;
@@ -654,6 +665,27 @@ TransientVertex BDiLeptonFitter::fitBVertex(const std::vector<reco::TransientTra
 double BDiLeptonFitter::calculatePointingAngle(const math::XYZVector& momentum,
                                             const math::XYZVector& displacement) {
   return acos(momentum.Dot(displacement) / (momentum.R() * displacement.R()));
+}
+
+bool BDiLeptonFitter::isSameTrack(const reco::Track* trk1, const reco::Track* trk2, double tolerance) {
+  // Compare tracks by their parameters to avoid self-fitting
+  // This is more robust than pointer comparison since lepton tracks come from different collections
+  if (!trk1 || !trk2) return false;
+  
+  // Check if tracks have same charge
+  if (trk1->charge() != trk2->charge()) return false;
+  
+  // Compare kinematic parameters with tolerance
+  if (fabs(trk1->pt() - trk2->pt()) > tolerance * trk1->pt()) return false;
+  if (fabs(trk1->eta() - trk2->eta()) > tolerance) return false;
+  
+  // Compare phi with wrapping
+  double dphi = trk1->phi() - trk2->phi();
+  while (dphi > M_PI) dphi -= 2*M_PI;
+  while (dphi < -M_PI) dphi += 2*M_PI;
+  if (fabs(dphi) > tolerance) return false;
+  
+  return true;
 }
 
 const pat::CompositeCandidateCollection& BDiLeptonFitter::getBPlus() const {

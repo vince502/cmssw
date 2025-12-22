@@ -23,11 +23,24 @@ process.source = cms.Source("PoolSource",
     duplicateCheckMode = cms.untracked.string("noDuplicateCheck"),
     fileNames = cms.untracked.vstring(
         '/store/hidata/OORun2025/IonPhysics1/MINIAOD/PromptReco-v1/000/394/154/00000/35d3344a-07b5-4ed1-8c1d-6e1036c9ad4c.root',
+'/store/hidata/OORun2025/IonPhysics59/MINIAOD/PromptReco-v1/000/394/217/00000/930f484d-5c72-4f4a-aa0b-edd7fe42de79.root',
+'/store/hidata/OORun2025/IonPhysics59/MINIAOD/PromptReco-v1/000/394/217/00000/60396782-15ae-4615-b6b1-58856f329796.root',
+'/store/hidata/OORun2025/IonPhysics59/MINIAOD/PromptReco-v1/000/394/217/00000/5f2bdad8-4af7-41d9-9788-f9d210b2dba2.root',
+'/store/hidata/OORun2025/IonPhysics59/MINIAOD/PromptReco-v1/000/394/217/00000/b8e59554-5c1c-475e-8390-39abfdbdb78c.root',
+'/store/hidata/OORun2025/IonPhysics59/MINIAOD/PromptReco-v1/000/394/217/00000/fee7aee8-6d3e-4614-8f0c-d1ddf93f801e.root',
     ),
 )
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(1000)
+    input = cms.untracked.int32(100000)
+)
+
+###############################################################################
+# Multi-threading settings
+process.options = cms.untracked.PSet(
+    numberOfThreads = cms.untracked.uint32(6),
+    numberOfStreams = cms.untracked.uint32(1),  # 0 = same as numberOfThreads
+    wantSummary = cms.untracked.bool(True),
 )
 
 ###############################################################################
@@ -59,9 +72,21 @@ process.centralityBin.Centrality = cms.InputTag("hiCentrality")
 process.centralityBin.centralityVariable = cms.string("HFtowers")
 
 ###############################################################################
+# Lighter unpackedTracksAndVertices - skip lostTracks (trade: lose +42% high-pT tracks)
+# Set to True for faster processing, False for maximum track recovery
+useLightUnpacker = False  # <-- Toggle this
+
+if useLightUnpacker:
+    from PhysicsTools.PatAlgos.slimming.unpackedTracksAndVertices_cfi import unpackedTracksAndVertices
+    process.unpackedTracksAndVertices = unpackedTracksAndVertices.clone(
+        packedCandidates = cms.VInputTag("packedPFCandidates"),  # Only PF, no lostTracks
+        packedCandidateNormChi2Map = cms.VInputTag("packedPFCandidateTrackChi2"),
+    )
+
+###############################################################################
 # Output
 process.TFileService = cms.Service("TFileService",
-    fileName = cms.string("HiForestOO_OniaBmesonDmeson1k.root")
+    fileName = cms.string("HiForestOO_OniaBmesonDmeson.root")
 )
 
 ###############################################################################
@@ -78,6 +103,11 @@ process.hiEvtAnalyzer.doHFfilters = cms.bool(False)  # Disable HF filters for OO
 process.load('HeavyIonsAnalysis.EventAnalysis.hltanalysis_cfi')
 process.load('HeavyIonsAnalysis.EventAnalysis.skimanalysis_cfi')
 process.load('HeavyIonsAnalysis.EventAnalysis.l1object_cfi')
+
+# TriggerAnalyzer2 with pattern filtering
+process.load('HeavyIonsAnalysis.EventAnalysis.hltanalysis2_cfi')
+from HeavyIonsAnalysis.EventAnalysis.hltanalysis2_cfi import configureOniaJetTriggers
+configureOniaJetTriggers(process.hltanalysis2)
 process.load('HeavyIonsAnalysis.EventAnalysis.particleFlowAnalyser_cfi')
 
 ###############################################################################
@@ -103,6 +133,62 @@ process.ggHiNtuplizer.useValMapIso = cms.bool(False)
 process.load('HeavyIonsAnalysis.JetAnalysis.akCs4PFJetSequence_pponPbPb_data_cff')
 process.load('HeavyIonsAnalysis.JetAnalysis.akPu4CaloJetSequence_pponPbPb_data_cff')
 process.akPu4CaloJetAnalyzer.doHiJetID = True
+process.akPu4CaloJetAnalyzer.jetPtMin = 60.0
+process.akCs4PFJetAnalyzer.jetPtMin = 60.0
+
+###############################################################################
+# Jet B-tagging Configuration
+###############################################################################
+# Jet settings
+matchJets = False
+jetPtMin = 60
+jetAbsEtaMax = 2.5
+doHIJetID = True
+doWTARecluster = True
+doBtagging = True   # Enable UPT scores
+
+# Jet collections to process
+# "4" = R=0.4 CS jets, "4Flow" = R=0.4 flow-subtracted CS jets
+jetLabelsCS = ["4"]
+jetLabelsFlowCS = []  # Skip flow jets for OO
+allJetLabels = jetLabelsCS
+
+# Define empty forest path first (required by candidateBtaggingMiniAOD)
+process.forest = cms.Path()
+
+# Add candidate b-tagging
+from HeavyIonsAnalysis.JetAnalysis.setupJets_PbPb_cff import candidateBtaggingMiniAOD
+
+for jetLabel in allJetLabels:
+    candidateBtaggingMiniAOD(process, isMC=False, jetPtMin=jetPtMin, 
+                             jetCorrLevels=['L2Relative', 'L2L3Residual'], 
+                             doBtagging=doBtagging, labelR=jetLabel)
+    
+    # Configure jet analyzer
+    setattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag", process.akCs4PFJetAnalyzer.clone())
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").jetTag = "selectedUpdatedPatJetsAK"+jetLabel+"PFBtag"
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").jetName = 'akCs'+jetLabel+'PF'
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").matchJets = matchJets
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").matchTag = 'patJetsAK'+jetLabel+'PFUnsubJets'
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").doBtagging = doBtagging
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").doHiJetID = doHIJetID
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").doWTARecluster = doWTARecluster
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").jetPtMin = jetPtMin
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").jetAbsEtaMax = cms.untracked.double(jetAbsEtaMax)
+    getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").rParam = 0.4
+    
+    if doBtagging:
+        # Standard pp Run3 UPT (default)
+        getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").pfJetProbabilityBJetTag = cms.untracked.string(
+            "pfJetProbabilityBJetTagsAK"+jetLabel+"PFBtag")
+        getattr(process, "akCs"+jetLabel+"PFJetAnalyzer_btag").pfUnifiedParticleTransformerAK4JetTags = cms.untracked.string(
+            "pfUnifiedParticleTransformerAK4JetTagsAK"+jetLabel+"PFBtag")
+        
+        # Use HI PbPb 2023 UPT model
+        getattr(process, "pfUnifiedParticleTransformerAK4JetTagsAK"+jetLabel+"PFBtag").model_path = \
+            'RecoBTag/Combined/data/UParTAK4/HIN/V00/UParTAK4_PbPb_2023.onnx'
+        getattr(process, "pfUnifiedParticleTransformerAK4TagInfosAK"+jetLabel+"PFBtag").sort_cand_by_pt = True
+        getattr(process, "pfUnifiedParticleTransformerAK4TagInfosAK"+jetLabel+"PFBtag").fix_lt_sorting = True
 
 ###############################################################################
 # ZDC Analysis (disabled for OO)
@@ -177,7 +263,7 @@ oniaTreeAnalyzer(process,
 # Dimuon Selection (J/psi to Upsilon: 2.5 - 15 GeV)
 #----------------------------------------------------------------------------
 process.onia2MuMuPatGlbGlb.dimuonSelection = cms.string(
-    "mass > 2.5 && mass < 15 && charge==0 && "
+    "mass > 2.5 && mass < 150 && charge==0 && "
     "abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25"
 )
 process.onia2MuMuPatGlbGlb.lowerPuritySelection = cms.string("pt > 1.5 && abs(eta) < 2.4 && isTrackerMuon")
@@ -188,7 +274,7 @@ process.onia2MuMuPatGlbGlb.onlySoftMuons = cms.bool(OnlySoftMuons)
 #----------------------------------------------------------------------------
 # Dielectron Selection (J/psi to Upsilon: 2.5 - 15 GeV)
 #----------------------------------------------------------------------------
-process.onia2ElectronElectronPatGlbGlb.dielectronSelection = cms.string("mass > 2.5 && mass < 15 && charge == 0")
+process.onia2ElectronElectronPatGlbGlb.dielectronSelection = cms.string("mass > 2.5 && mass < 150 && charge == 0")
 process.onia2ElectronElectronPatGlbGlb.higherPuritySelection = cms.string("pt > 2.0 && abs(eta) < 2.4")
 process.onia2ElectronElectronPatGlbGlb.lowerPuritySelection = cms.string("pt > 1.5 && abs(eta) < 2.4")
 process.onia2ElectronElectronPatGlbGlb.conversions = cms.InputTag("reducedEgamma", "reducedConversions")
@@ -392,12 +478,13 @@ process.vertexAnalyzer.beamSpotSrc = cms.InputTag('offlineBeamSpot')
 ###############################################################################
 # Main Forest Sequence (Event, Track, Muon, Electron, Jet)
 ###############################################################################
-process.forest = cms.Path(
+process.forest += (
     process.HiForestInfo +
     process.centralityBin +
     process.hiEvtAnalyzer +
     process.hltanalysis +
-    process.l1object +
+#    process.hltanalysis2 +  # Filtered trigger analyzer with prescale caching
+#    process.l1object +
 #    process.trackSequencePbPb +
     process.particleFlowAnalyser +
     process.unpackedTracksAndVertices +
@@ -406,7 +493,8 @@ process.forest = cms.Path(
 #    process.muonAnalyzer +
 #    process.ggHiNtuplizer +
     process.akCs4PFJetAnalyzer +
-    process.akPu4CaloJetAnalyzer
+    process.akPu4CaloJetAnalyzer +
+    process.akCs4PFJetAnalyzer_btag  # Jet analyzer with UPT b-tagging (jetPtMin=60)
 )
 
 ###############################################################################
@@ -446,6 +534,15 @@ process.bMesonEEPath = cms.Path(
 # Event Selection Filters
 ###############################################################################
 process.load('HeavyIonsAnalysis.EventAnalysis.collisionEventSelection_cff')
+
+# Common event filter sequence for early termination
+# Events failing these filters will skip heavy processing (Onia, B meson, etc.)
+process.eventFilter = cms.Sequence(
+    process.primaryVertexFilter +
+    process.clusterCompatibilityFilter
+)
+
+# Filter paths for skim tree (records which events pass)
 process.pclusterCompatibilityFilter = cms.Path(process.clusterCompatibilityFilter)
 process.pprimaryVertexFilter = cms.Path(process.primaryVertexFilter)
 
@@ -457,12 +554,22 @@ process.pprimaryVertexFilter = cms.Path(process.primaryVertexFilter)
 process.pAna = cms.EndPath(process.skimanalysis)
 
 ###############################################################################
-# Schedule
+# Schedule - with early termination on bad events
 ###############################################################################
+# Option 1: Add filters to beginning of each path (current approach)
+# Option 2: Use cms.ignore() to continue even if filter fails (for debugging)
+
+# Prepend event filter to heavy processing paths
+process.forest.insert(0, process.eventFilter)
+process.oniaPath.insert(0, process.eventFilter)
+process.bMesonMuMuPath.insert(0, process.eventFilter)
+process.bMesonEEPath.insert(0, process.eventFilter)
+# process.dMesonPath.insert(0, process.eventFilter)  # Uncomment if using D mesons
+
 process.schedule = cms.Schedule(
     process.forest,
     process.oniaPath,
-    process.dMesonPath,
+#    process.dMesonPath,
     process.bMesonMuMuPath,
     process.bMesonEEPath,
     process.pclusterCompatibilityFilter,

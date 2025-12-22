@@ -55,6 +55,7 @@
 
 // #include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
 #include "DataFormats/PatCandidates/interface/CompositeCandidate.h"
+#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
 #include "DataFormats/Math/interface/angle.h"
 #include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
@@ -117,6 +118,8 @@ class D0Fitter {
   edm::EDGetTokenT<reco::TrackCollection> token_tracks;
   edm::EDGetTokenT<reco::VertexCollection> token_vertices;
   edm::EDGetTokenT<edm::ValueMap<reco::DeDxData> > token_dedx;
+  edm::EDGetTokenT<std::vector<edm::Ptr<pat::PackedCandidate>>> token_track2pc;  // track to PackedCandidate mapping
+  bool useDeDx_;  // flag to indicate if dEdx is configured
   edm::EDGetTokenT<reco::BeamSpot> token_beamSpot;
   edm::EDGetTokenT<int> tok_centBinLabel_;
 

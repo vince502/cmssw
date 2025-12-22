@@ -45,7 +45,9 @@
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "MagneticField/VolumeBasedEngine/interface/VolumeBasedMagneticField.h"
 
-#include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+// #include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+#include "DataFormats/PatCandidates/interface/CompositeCandidate.h"
+#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
 #include "DataFormats/Math/interface/angle.h"
 #include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
@@ -76,21 +78,22 @@
 
 class D04PFitter {
  public:
+  using CC = pat::CompositeCandidate;
+  using CCC = pat::CompositeCandidateCollection;
+
   D04PFitter(const edm::ParameterSet& theParams, edm::ConsumesCollector && iC);
   ~D04PFitter();
 
   void fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup);
 
-  // Switching to L. Lista's reco::Candidate infrastructure for D0 storage
-  const reco::VertexCompositeCandidateCollection& getD0() const;
+  const CCC& getD0() const;
   const std::vector<float>& getMVAVals() const; 
 
-//  auto_ptr<edm::ValueMap<float> > getMVAMap() const;
   void resetAll();
 
  private:
-  // STL vector of VertexCompositeCandidate that will be filled with VertexCompositeCandidates by fitAll()
-  reco::VertexCompositeCandidateCollection theD0s;
+  // STL vector of pat::CompositeCandidate
+  CCC theD0s;
 
   // Tracker geometry for discerning hit positions
   const TrackerGeometry* trackerGeom;
@@ -104,6 +107,8 @@ class D04PFitter {
   edm::EDGetTokenT<reco::TrackCollection> token_tracks;
   edm::EDGetTokenT<reco::VertexCollection> token_vertices;
   edm::EDGetTokenT<edm::ValueMap<reco::DeDxData> > token_dedx;
+  edm::EDGetTokenT<std::vector<edm::Ptr<pat::PackedCandidate>>> token_track2pc;
+  bool useDeDx_;
   edm::EDGetTokenT<reco::BeamSpot> token_beamSpot;
 
   // Cuts
@@ -132,6 +137,7 @@ class D04PFitter {
   double alphaCut;
   double alpha2DCut;
   bool   isWrongSign;
+  double d0AbsYCut;
 
   std::vector<reco::TrackBase::TrackQuality> qualities;
 

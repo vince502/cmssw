@@ -22,6 +22,26 @@ patCompositeNtupleProducerDefault = cms.EDAnalyzer('PATCompositeNtupleProducer',
     centralityBinLabel = cms.InputTag('centralityBin', 'HFtowers'),
     centralitySrc = cms.InputTag('hiCentrality'),
     
+    # Gen matching (MC only)
+    genealogyInfo = cms.untracked.bool(False),
+    genParticles = cms.untracked.InputTag('prunedGenParticles'),
+    # Gen matching criteria (optional, uses optimized defaults if not specified)
+    # genMatchDRMax: Maximum ΔR for candidate matching (default: 0.1)
+    #   - D mesons: 0.05-0.1 recommended
+    #   - B mesons: 0.1-0.2 recommended (wider due to larger decay length)
+    # genMatchMassWindow: Maximum |Δm| in GeV (default: -1 = auto by type)
+    #   - D0: 0.15 GeV (~3σ mass resolution)
+    #   - D*: 0.20 GeV
+    #   - B mesons: 0.30 GeV
+    # genTrackMatchDRMax: Maximum ΔR for track matching (default: 0.03)
+    #   - Typical: 0.03-0.05 for good track resolution
+    # genTrackMatchPtRatio: Maximum pT ratio difference (default: 0.5)
+    #   - Typical: 0.3-0.5 (30-50% pT difference allowed)
+    genMatchDRMax = cms.untracked.double(0.1),
+    genMatchMassWindow = cms.untracked.double(-1.0),  # -1 = auto by type
+    genTrackMatchDRMax = cms.untracked.double(0.03),
+    genTrackMatchPtRatio = cms.untracked.double(0.5),
+    
     # Output
     saveTree = cms.untracked.bool(True),
 )

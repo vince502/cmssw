@@ -71,7 +71,15 @@ DStar5PFitter::DStar5PFitter(const edm::ParameterSet& theParameters,  edm::Consu
   token_d0cand = iC.consumes<pat::CompositeCandidateCollection>(theParameters.getParameter<edm::InputTag>("d0Collection"));
   token_tracks = iC.consumes<reco::TrackCollection>(theParameters.getParameter<edm::InputTag>("trackRecoAlgorithm"));
   token_vertices = iC.consumes<reco::VertexCollection>(theParameters.getParameter<edm::InputTag>("vertexRecoAlgorithm"));
-  token_dedx = iC.consumes<edm::ValueMap<reco::DeDxData> >(edm::InputTag("dedxHarmonic2"));
+  
+  // dEdx source - configurable, empty InputTag means disabled
+  edm::InputTag dedxTag = theParameters.getParameter<edm::InputTag>("dedxSrc");
+  useDeDx_ = !dedxTag.label().empty();
+  if(useDeDx_) {
+    token_dedx = iC.consumes<edm::ValueMap<reco::DeDxData> >(dedxTag);
+    token_track2pc = iC.consumes<std::vector<edm::Ptr<pat::PackedCandidate>>>(
+        theParameters.getParameter<edm::InputTag>("trackRecoAlgorithm"));
+  }
 
   // Second, initialize post-fit cuts
   mPiKCutMin = theParameters.getParameter<double>(string("mPiKCutMin"));
@@ -165,6 +173,7 @@ void DStar5PFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSet
   Handle<reco::BeamSpot> theBeamSpotHandle;
   ESHandle<MagneticField> bFieldHandle;
   Handle<edm::ValueMap<reco::DeDxData> > dEdxHandle;
+  Handle<std::vector<edm::Ptr<pat::PackedCandidate>>> track2pcHandle;
 
   // Get the tracks, vertices from the event, and get the B-field record
   //  from the EventSetup
@@ -172,7 +181,10 @@ void DStar5PFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSet
   iEvent.getByToken(token_vertices, theVertexHandle);
   iEvent.getByToken(token_d0cand, theD0Handle);
   iEvent.getByToken(token_beamSpot, theBeamSpotHandle);  
-  iEvent.getByToken(token_dedx, dEdxHandle);
+  if(useDeDx_) {
+    iEvent.getByToken(token_dedx, dEdxHandle);
+    iEvent.getByToken(token_track2pc, track2pcHandle);
+  }
 
 
   if( !theTrackHandle->size() ) return;
@@ -296,14 +308,25 @@ void DStar5PFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSet
        reco::Candidate* dau1 = theD0.daughter(1);
        reco::Candidate* dau2 = theD0.daughter(2);
        reco::Candidate* dau3 = theD0.daughter(3);
+       
+       // Check if D0 daughters themselves contain duplicate tracks (avoid double counting in D0 fit)
+       if(isSameTrack(dau0->bestTrack(), dau1->bestTrack())) continue;
+       if(isSameTrack(dau0->bestTrack(), dau2->bestTrack())) continue;
+       if(isSameTrack(dau0->bestTrack(), dau3->bestTrack())) continue;
+       if(isSameTrack(dau1->bestTrack(), dau2->bestTrack())) continue;
+       if(isSameTrack(dau1->bestTrack(), dau3->bestTrack())) continue;
+       if(isSameTrack(dau2->bestTrack(), dau3->bestTrack())) continue;
+       
+       // Check if pion track is the same as any D0 daughter track (avoid double counting)
+       if(isSameTrack(&thePiTrack, dau0->bestTrack())) continue;
+       if(isSameTrack(&thePiTrack, dau1->bestTrack())) continue;
+       if(isSameTrack(&thePiTrack, dau2->bestTrack())) continue;
+       if(isSameTrack(&thePiTrack, dau3->bestTrack())) continue;
+       
        reco::TransientTrack ttk0(*dau0->bestTrack(), magField);
        reco::TransientTrack ttk1(*dau1->bestTrack(), magField);
        reco::TransientTrack ttk2(*dau2->bestTrack(), magField);
        reco::TransientTrack ttk3(*dau3->bestTrack(), magField);
-       if(fabs(thePiTrack.eta() - dau0->bestTrack()->eta()) < 0.03) continue;
-       if(fabs(thePiTrack.eta() - dau1->bestTrack()->eta()) < 0.03) continue;
-       if(fabs(thePiTrack.eta() - dau2->bestTrack()->eta()) < 0.03) continue;
-       if(fabs(thePiTrack.eta() - dau3->bestTrack()->eta()) < 0.03) continue;
        d0Daus.push_back(pFactory.particle(ttk0,dau0->mass(),chi,ndf,D0MassD0_sigma));
        d0Daus.push_back(pFactory.particle(ttk1,dau1->mass(),chi,ndf,D0MassD0_sigma));
        d0Daus.push_back(pFactory.particle(ttk2,dau2->mass(),chi,ndf,D0MassD0_sigma));
@@ -532,4 +555,30 @@ void DStar5PFitter::resetAll() {
     dcaVals_.clear();
     dcaErrs_.clear();
     detlaM_.clear();
+}
+
+bool DStar5PFitter::isSameTrack(const reco::Track* trk1, const reco::Track* trk2, double tolerance) const {
+  // Compare tracks by their parameters to avoid double counting
+  if (!trk1 || !trk2) return false;
+  
+  // First check: if pointers are the same, tracks are definitely the same
+  if (trk1 == trk2) return true;
+  
+  // Second check: compare track parameters (needed when tracks come from different collections)
+  // Check if tracks have same charge
+  if (trk1->charge() != trk2->charge()) return false;
+  
+  // Compare kinematic parameters with tolerance
+  // Use a more reasonable tolerance (0.001 = 0.1%) for track comparisons
+  double effectiveTolerance = (tolerance < 1e-4) ? 0.001 : tolerance;
+  if (fabs(trk1->pt() - trk2->pt()) > effectiveTolerance * trk1->pt()) return false;
+  if (fabs(trk1->eta() - trk2->eta()) > effectiveTolerance) return false;
+  
+  // Compare phi with wrapping
+  double dphi = trk1->phi() - trk2->phi();
+  while (dphi > M_PI) dphi -= 2*M_PI;
+  while (dphi < -M_PI) dphi += 2*M_PI;
+  if (fabs(dphi) > effectiveTolerance) return false;
+  
+  return true;
 }

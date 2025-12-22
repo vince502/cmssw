@@ -48,6 +48,7 @@
 
 // #include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
 #include "DataFormats/PatCandidates/interface/CompositeCandidate.h"
+#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
 #include "DataFormats/Math/interface/angle.h"
 #include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
@@ -98,6 +99,8 @@ class DStarFitter {
   void resetAll();
 
  private:
+  // Helper function to check if two tracks are the same (avoid double counting)
+  bool isSameTrack(const reco::Track* trk1, const reco::Track* trk2, double tolerance = 1e-5) const;
   // STL vector of VertexCompositeCandidate that will be filled with VertexCompositeCandidates by fitAll()
   CCC theDStars;
 
@@ -114,6 +117,8 @@ class DStarFitter {
   edm::EDGetTokenT<reco::VertexCollection> token_vertices;
   edm::EDGetTokenT<CCC> token_d0cand;
   edm::EDGetTokenT<edm::ValueMap<reco::DeDxData> > token_dedx;
+  edm::EDGetTokenT<std::vector<edm::Ptr<pat::PackedCandidate>>> token_track2pc;
+  bool useDeDx_;
   edm::EDGetTokenT<reco::BeamSpot> token_beamSpot;
 
   // Cuts

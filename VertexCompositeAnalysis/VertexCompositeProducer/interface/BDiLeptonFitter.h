@@ -23,6 +23,7 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include "DataFormats/Common/interface/Ref.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
@@ -31,11 +32,15 @@
 #include "DataFormats/PatCandidates/interface/CompositeCandidate.h"
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/Electron.h"
+#include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+#include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
+#include "DataFormats/Math/interface/angle.h"
+#include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
+#include "DataFormats/TrackReco/interface/DeDxData.h"
+
 #include "RecoVertex/VertexPrimitives/interface/TransientVertex.h"
-#include "TrackingTools/TransientTrack/interface/TransientTrack.h"
 #include "RecoVertex/KalmanVertexFit/interface/KalmanVertexFitter.h"
 #include "RecoVertex/AdaptiveVertexFit/interface/AdaptiveVertexFitter.h"
-
 #include "RecoVertex/KinematicFit/interface/KinematicParticleVertexFitter.h"
 #include "RecoVertex/KinematicFit/interface/KinematicParticleFitter.h"
 #include "RecoVertex/KinematicFit/interface/MassKinematicConstraint.h"
@@ -43,38 +48,24 @@
 #include "RecoVertex/KinematicFitPrimitives/interface/RefCountedKinematicParticle.h"
 #include "RecoVertex/KinematicFitPrimitives/interface/TransientTrackKinematicParticle.h"
 #include "RecoVertex/KinematicFitPrimitives/interface/KinematicParticleFactoryFromTransientTrack.h"
+
+#include "TrackingTools/TransientTrack/interface/TransientTrack.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrackFromFTSFactory.h"
 
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "MagneticField/VolumeBasedEngine/interface/VolumeBasedMagneticField.h"
-
-#include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
-#include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
-#include "DataFormats/Math/interface/angle.h"
-#include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
-#include "DataFormats/TrackReco/interface/DeDxData.h"
-
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include "Geometry/CommonDetUnit/interface/TrackingGeometry.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/CommonDetUnit/interface/GeomDet.h"
 
-#include "CommonTools/UtilAlgos/interface/TFileService.h"
-
 #include <string>
-#include <fstream>
-#include <typeinfo>
-#include <memory>
 #include <vector>
-#include <utility>
-#include <algorithm>
-#include <map>
+#include <memory>
 
 class BDiLeptonFitter {
  public:
-  // Lepton channel enum
   enum class LeptonChannel { Unknown = 0, Muon = 1, Electron = 2 };
 
   BDiLeptonFitter(const edm::ParameterSet& theParams, edm::ConsumesCollector && iC);
@@ -95,13 +86,12 @@ class BDiLeptonFitter {
   pat::CompositeCandidateCollection theBc;
   std::vector<float> mvaVals_;
 
-  // Tracker geometry for discerning hit positions
   const TrackerGeometry* trackerGeom;
   const MagneticField* magField;
 
   edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bField_esToken_;
 
-  // Input collections - support both dimuon and dielectron
+  // Input collections
   edm::EDGetTokenT<pat::CompositeCandidateCollection> token_dileptons;
   edm::EDGetTokenT<reco::TrackCollection> token_tracks;
   edm::EDGetTokenT<reco::VertexCollection> token_vertices;
@@ -218,10 +208,7 @@ class BDiLeptonFitter {
                             const std::vector<double>& masses);
   double calculatePointingAngle(const math::XYZVector& momentum,
                                const math::XYZVector& displacement);
-  double getDecayLength(const math::XYZPoint& vtx1, const math::XYZPoint& vtx2,
-                       const GlobalError& vtx1Err, const GlobalError& vtx2Err);
-  double getDecayLengthSignificance(const math::XYZPoint& vtx1, const math::XYZPoint& vtx2,
-                                   const GlobalError& vtx1Err, const GlobalError& vtx2Err);
+  bool isSameTrack(const reco::Track* trk1, const reco::Track* trk2, double tolerance = 0.001);
 };
 
 #endif

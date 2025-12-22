@@ -353,6 +353,7 @@ private:
                              1 = +/+
                              2 = -/- 
                           */
+  Short_t Reco_QQ_collIdx[Max_QQ_size];   // Original index in input onia2MuMuPAT collection (for B meson matching)
   Short_t Reco_QQ_mupl_idx[Max_QQ_size];  // index of the muon plus from Jpsi, in the full list of muons
   Short_t Reco_QQ_mumi_idx[Max_QQ_size];  // index of the muon minus from Jpsi, in the full list of muons
   Short_t Reco_QQ_whichGen
@@ -581,6 +582,7 @@ private:
 
   std::vector<unsigned int> _thePassedCats;
   std::vector<const pat::CompositeCandidate*> _thePassedCands;
+  std::vector<int> _thePassedCollIdxs;  // original index in input collection (for B meson matching)
   std::vector<unsigned int> _thePassedBcCats;
   std::vector<const pat::CompositeCandidate*> _thePassedBcCands;
 

@@ -618,6 +618,7 @@ void HiOniaAnalyzer::fillTreeJpsi(int count) {
     } else {
       Reco_QQ_sign[Reco_QQ_size] = muon1->charge() + muon2->charge();
       Reco_QQ_type[Reco_QQ_size] = _thePassedCats.at(count);
+      Reco_QQ_collIdx[Reco_QQ_size] = _thePassedCollIdxs.at(count);  // Original collection index for B meson matching
 
       Reco_QQ_trig[Reco_QQ_size] = trigBits;
 
@@ -989,6 +990,7 @@ void HiOniaAnalyzer::InitEvent() {
 
   _thePassedCats.clear();
   _thePassedCands.clear();
+  _thePassedCollIdxs.clear();
 
   Reco_QQ_size = 0;
   Reco_mu_size = 0;
@@ -1456,6 +1458,7 @@ void HiOniaAnalyzer::InitTree() {
     myTree->Branch("Reco_QQ_size", &Reco_QQ_size, "Reco_QQ_size/S");
     myTree->Branch("Reco_QQ_type", Reco_QQ_type, "Reco_QQ_type[Reco_QQ_size]/S");
     myTree->Branch("Reco_QQ_sign", Reco_QQ_sign, "Reco_QQ_sign[Reco_QQ_size]/S");
+    myTree->Branch("Reco_QQ_collIdx", Reco_QQ_collIdx, "Reco_QQ_collIdx[Reco_QQ_size]/S");  // Original index in onia2MuMuPAT collection (for B meson matching)
     if (std::strcmp("array", _mom4format.c_str()) == 0)
       myTree->Branch("Reco_QQ_4mom", "TClonesArray", &Reco_QQ_4mom, 32000, 0);
     if (std::strcmp("vector", _mom4format.c_str()) == 0) {

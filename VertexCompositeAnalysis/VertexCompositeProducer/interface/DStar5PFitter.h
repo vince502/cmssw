@@ -45,7 +45,9 @@
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "MagneticField/VolumeBasedEngine/interface/VolumeBasedMagneticField.h"
 
-#include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+// #include "DataFormats/Candidate/interface/VertexCompositeCandidate.h"
+#include "DataFormats/PatCandidates/interface/CompositeCandidate.h"
+#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
 #include "DataFormats/Math/interface/angle.h"
 #include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
@@ -79,24 +81,27 @@
 
 class DStar5PFitter {
  public:
+  using CC = pat::CompositeCandidate;
+  using CCC = pat::CompositeCandidateCollection;
+
   DStar5PFitter(const edm::ParameterSet& theParams, edm::ConsumesCollector && iC);
   ~DStar5PFitter();
 
   void fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup);
 
-  // Switching to L. Lista's reco::Candidate infrastructure for D0 storage
-  const reco::VertexCompositeCandidateCollection& getDStar() const;
+  const CCC& getDStar() const;
   const std::vector<float>& getDCAVals() const;
   const std::vector<float>& getDCAErrs() const;
   const std::vector<float>& getMVAVals() const; 
   const std::vector<float>& getDeltaM() const; 
 
-//  auto_ptr<edm::ValueMap<float> > getMVAMap() const;
   void resetAll();
 
  private:
-  // STL vector of VertexCompositeCandidate that will be filled with VertexCompositeCandidates by fitAll()
-  reco::VertexCompositeCandidateCollection theDStars;
+  // Helper function to check if two tracks are the same (avoid double counting)
+  bool isSameTrack(const reco::Track* trk1, const reco::Track* trk2, double tolerance = 1e-5) const;
+  // STL vector of pat::CompositeCandidate
+  CCC theDStars;
 
   // Tracker geometry for discerning hit positions
   const TrackerGeometry* trackerGeom;
@@ -109,8 +114,10 @@ class DStar5PFitter {
   edm::InputTag vtxAlg;
   edm::EDGetTokenT<reco::TrackCollection> token_tracks;
   edm::EDGetTokenT<reco::VertexCollection> token_vertices;
-  edm::EDGetTokenT<reco::VertexCompositeCandidateCollection> token_d0cand;
+  edm::EDGetTokenT<pat::CompositeCandidateCollection> token_d0cand;
   edm::EDGetTokenT<edm::ValueMap<reco::DeDxData> > token_dedx;
+  edm::EDGetTokenT<std::vector<edm::Ptr<pat::PackedCandidate>>> token_track2pc;
+  bool useDeDx_;
   edm::EDGetTokenT<reco::BeamSpot> token_beamSpot;
 
   // Cuts

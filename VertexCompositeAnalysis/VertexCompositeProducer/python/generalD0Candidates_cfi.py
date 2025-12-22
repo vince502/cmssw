@@ -43,6 +43,9 @@ generalD0Candidates = cms.EDProducer("D0Producer",
 
     isWrongSign = cms.bool(False),
 
+    # dEdx source (empty = disabled, e.g. "dedxHarmonic2" for AOD, "dedxEstimator:dedxHarmonic2" for reco)
+    dedxSrc = cms.InputTag(""),
+
 # MVA 
 
     useAnyMVA = cms.bool(False),

@@ -50,7 +50,8 @@ void HiOniaAnalyzer::makeCuts(bool keepSameSign) {
   math::XYZPoint RefVtx_tmp = RefVtx;
 
   if (collJpsi.isValid()) {
-    for (std::vector<pat::CompositeCandidate>::const_iterator it = collJpsi->begin(); it != collJpsi->end(); ++it) {
+    int collIdx = 0;  // Track original index in collection for B meson matching
+    for (std::vector<pat::CompositeCandidate>::const_iterator it = collJpsi->begin(); it != collJpsi->end(); ++it, ++collIdx) {
       const pat::CompositeCandidate* cand = &(*it);
 
       if (cand == nullptr) {
@@ -88,6 +89,7 @@ void HiOniaAnalyzer::makeCuts(bool keepSameSign) {
             if (checkCuts(cand, muon1, muon2, &HiOniaAnalyzer::selGlobalMuon, &HiOniaAnalyzer::selGlobalMuon)) {
               _thePassedCats.push_back(Glb_Glb);
               _thePassedCands.push_back(cand);
+              _thePassedCollIdxs.push_back(collIdx);
               if (!_fillSingleMuons) {
                 EtaOfWantedMuons.push_back(muon1->eta());
                 EtaOfWantedMuons.push_back(muon2->eta());
@@ -99,6 +101,7 @@ void HiOniaAnalyzer::makeCuts(bool keepSameSign) {
             if (checkCuts(cand, muon1, muon2, &HiOniaAnalyzer::selGlobalMuon, &HiOniaAnalyzer::selTrackerMuon)) {
               _thePassedCats.push_back(TwoGlbAmongThree);
               _thePassedCands.push_back(cand);
+              _thePassedCollIdxs.push_back(collIdx);
               if (!_fillSingleMuons) {
                 EtaOfWantedMuons.push_back(muon1->eta());
                 EtaOfWantedMuons.push_back(muon2->eta());
@@ -110,6 +113,7 @@ void HiOniaAnalyzer::makeCuts(bool keepSameSign) {
             if (checkCuts(cand, muon1, muon2, &HiOniaAnalyzer::selGlobalMuon, &HiOniaAnalyzer::selGlobalMuon)) {
               _thePassedCats.push_back(GlbTrk_GlbTrk);
               _thePassedCands.push_back(cand);
+              _thePassedCollIdxs.push_back(collIdx);
               if (!_fillSingleMuons) {
                 EtaOfWantedMuons.push_back(muon1->eta());
                 EtaOfWantedMuons.push_back(muon2->eta());
@@ -121,6 +125,7 @@ void HiOniaAnalyzer::makeCuts(bool keepSameSign) {
             if (checkCuts(cand, muon1, muon2, &HiOniaAnalyzer::selTrackerMuon, &HiOniaAnalyzer::selTrackerMuon)) {
               _thePassedCats.push_back(Trk_Trk);
               _thePassedCands.push_back(cand);
+              _thePassedCollIdxs.push_back(collIdx);
               if (!_fillSingleMuons) {
                 EtaOfWantedMuons.push_back(muon1->eta());
                 EtaOfWantedMuons.push_back(muon2->eta());
@@ -136,6 +141,7 @@ void HiOniaAnalyzer::makeCuts(bool keepSameSign) {
                           &HiOniaAnalyzer::selGlobalOrTrackerMuon)) {
               _thePassedCats.push_back(GlbOrTrk_GlbOrTrk);
               _thePassedCands.push_back(cand);
+              _thePassedCollIdxs.push_back(collIdx);
               if (!_fillSingleMuons) {
                 EtaOfWantedMuons.push_back(muon1->eta());
                 EtaOfWantedMuons.push_back(muon2->eta());
@@ -147,6 +153,7 @@ void HiOniaAnalyzer::makeCuts(bool keepSameSign) {
             if (checkCuts(cand, muon1, muon2, &HiOniaAnalyzer::selAllMuon, &HiOniaAnalyzer::selAllMuon)) {
               _thePassedCats.push_back(All_All);
               _thePassedCands.push_back(cand);
+              _thePassedCollIdxs.push_back(collIdx);
               if (!_fillSingleMuons) {
                 EtaOfWantedMuons.push_back(muon1->eta());
                 EtaOfWantedMuons.push_back(muon2->eta());

@@ -51,7 +51,15 @@ D04PFitter::D04PFitter(const edm::ParameterSet& theParameters,  edm::ConsumesCol
   token_beamSpot = iC.consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"));
   token_tracks = iC.consumes<reco::TrackCollection>(theParameters.getParameter<edm::InputTag>("trackRecoAlgorithm"));
   token_vertices = iC.consumes<reco::VertexCollection>(theParameters.getParameter<edm::InputTag>("vertexRecoAlgorithm"));
-  token_dedx = iC.consumes<edm::ValueMap<reco::DeDxData> >(edm::InputTag("dedxHarmonic2"));
+  
+  // dEdx source - configurable, empty InputTag means disabled
+  edm::InputTag dedxTag = theParameters.getParameter<edm::InputTag>("dedxSrc");
+  useDeDx_ = !dedxTag.label().empty();
+  if(useDeDx_) {
+    token_dedx = iC.consumes<edm::ValueMap<reco::DeDxData> >(dedxTag);
+    token_track2pc = iC.consumes<std::vector<edm::Ptr<pat::PackedCandidate>>>(
+        theParameters.getParameter<edm::InputTag>("trackRecoAlgorithm"));
+  }
 
   // Second, initialize post-fit cuts
   mPiKCutMin = theParameters.getParameter<double>(string("mPiKCutMin"));
@@ -79,6 +87,7 @@ D04PFitter::D04PFitter(const edm::ParameterSet& theParameters,  edm::ConsumesCol
   alphaCut = theParameters.getParameter<double>(string("alphaCut"));
   alpha2DCut = theParameters.getParameter<double>(string("alpha2DCut"));
   isWrongSign = theParameters.getParameter<bool>(string("isWrongSign"));
+  d0AbsYCut = theParameters.getParameter<double>(string("d0AbsYCut"));
 
 
   useAnyMVA_ = false;
@@ -147,14 +156,17 @@ void D04PFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   Handle<reco::BeamSpot> theBeamSpotHandle;
   ESHandle<MagneticField> bFieldHandle;
   Handle<edm::ValueMap<reco::DeDxData> > dEdxHandle;
+  Handle<std::vector<edm::Ptr<pat::PackedCandidate>>> track2pcHandle;
 
   // Get the tracks, vertices from the event, and get the B-field record
   //  from the EventSetup
   iEvent.getByToken(token_tracks, theTrackHandle); 
   iEvent.getByToken(token_vertices, theVertexHandle);
   iEvent.getByToken(token_beamSpot, theBeamSpotHandle);  
-  iEvent.getByToken(token_dedx, dEdxHandle);
-
+  if(useDeDx_) {
+    iEvent.getByToken(token_dedx, dEdxHandle);
+    iEvent.getByToken(token_track2pc, track2pcHandle);
+  }
 
   if( !theTrackHandle->size() ) return;
   bFieldHandle = iSetup.getHandle(bField_esToken_);
@@ -302,12 +314,23 @@ void D04PFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           if( fabs(ptr2->eta() - ntr2->eta())> tkEtaDiffCut) continue;
           if( fabs(ntr2->eta() - ntr1->eta())> tkEtaDiffCut) continue;
 
+          // Apply pre-cuts BEFORE expensive kinematic fit
+          // Pt sum cut
+          double ptSum = ptr1->pt() + ptr2->pt() + ntr1->pt() + ntr2->pt();
+          if( ptSum < tkPtSumCut) continue;
+
+          // Pre-fit mass estimate (cheap calculation)
           std::vector<TransientTrack> transTracks;
           lpcnt++;
           std::vector<reco::TransientTrack*> transientTracks = {posPtr1, posPtr2, negPtr1, negPtr2};
           std::vector<double> masses = {0.13957, 0.13957, 0.13957, 0.13957};
           double d0Mass = calculateInvariantMassFromTransientTracks(transientTracks, masses);
-          if( d0Mass > 2.4) continue;
+          
+          // Apply tighter mass window BEFORE fit (mPiKCutMin/Max are the final cuts)
+          // Use a slightly wider window here to account for fit resolution
+          double massWindowMargin = 0.1; // GeV, to account for fit differences
+          if( d0Mass < mPiKCutMin - massWindowMargin || d0Mass > mPiKCutMax + massWindowMargin) continue;
+          if( d0Mass > 2.4) continue; // Keep upper bound check
 
           passlpcnt2++;
 
@@ -367,15 +390,23 @@ void D04PFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
           const Particle::LorentzVector d0P4(d0TotalP.x(), d0TotalP.y(), d0TotalP.z(), d0TotalE);
 
+          // Apply mPiKCutMin and mPiKCutMax cuts on the fitted D0 mass
+          double d0FittedMass = d0P4.mass();
+          if (d0FittedMass < mPiKCutMin || d0FittedMass > mPiKCutMax) continue;
+
+          // Apply rapidity cut on D0 candidate (early cut for efficiency)
+          double d0Rapidity = d0P4.Rapidity();
+          if (fabs(d0Rapidity) > d0AbsYCut) continue;
+
           Particle::Point d0Vtx((*d0DecayVertex).position().x(), (*d0DecayVertex).position().y(), (*d0DecayVertex).position().z());
           RecoChargedCandidate thePosCand1(1, Particle::LorentzVector(posCandTotalP1.x(), posCandTotalP1.y(), posCandTotalP1.z(), posCand1TotalE), d0Vtx);
           thePosCand1.setTrack(ptr1);
           RecoChargedCandidate thePosCand2(1, Particle::LorentzVector(posCandTotalP2.x(), posCandTotalP2.y(), posCandTotalP2.z(), posCand2TotalE), d0Vtx);
           thePosCand2.setTrack(ptr2);
-          RecoChargedCandidate theNegCand1(1, Particle::LorentzVector(negCandTotalP1.x(), negCandTotalP1.y(), negCandTotalP1.z(), negCand1TotalE), d0Vtx);
-          theNegCand1.setTrack(ptr1);
-          RecoChargedCandidate theNegCand2(1, Particle::LorentzVector(negCandTotalP2.x(), negCandTotalP2.y(), negCandTotalP2.z(), negCand2TotalE), d0Vtx);
-          theNegCand2.setTrack(ptr2);
+          RecoChargedCandidate theNegCand1(-1, Particle::LorentzVector(negCandTotalP1.x(), negCandTotalP1.y(), negCandTotalP1.z(), negCand1TotalE), d0Vtx);
+          theNegCand1.setTrack(ntr1);
+          RecoChargedCandidate theNegCand2(-1, Particle::LorentzVector(negCandTotalP2.x(), negCandTotalP2.y(), negCandTotalP2.z(), negCand2TotalE), d0Vtx);
+          theNegCand2.setTrack(ntr2);
 
           std::vector<double> d0VtxEVec;
           d0VtxEVec.push_back( d0DecayVertex->error().cxx() );

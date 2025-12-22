@@ -58,7 +58,7 @@ static const float piMassDStarSquared = piMassDStar*piMassDStar;
 static const float dStarMassDStar = 2.010000;
 static float piMassDStar_sigma = 3.5E-7f;
 static float D0MassD0_sigma = 1.6E-4f;
-static float dStarMassDStar_sigma = dStarMassDStar*1.e-6;
+[[maybe_unused]] static float dStarMassDStar_sigma = dStarMassDStar*1.e-6;
 
 
 // Constructor and (empty) destructor
@@ -72,7 +72,16 @@ DStarFitter::DStarFitter(const edm::ParameterSet& theParameters,  edm::ConsumesC
   token_d0cand = iC.consumes<CCC>(theParameters.getParameter<edm::InputTag>("d0Collection"));
   token_tracks = iC.consumes<reco::TrackCollection>(theParameters.getParameter<edm::InputTag>("trackRecoAlgorithm"));
   token_vertices = iC.consumes<reco::VertexCollection>(theParameters.getParameter<edm::InputTag>("vertexRecoAlgorithm"));
-  token_dedx = iC.consumes<edm::ValueMap<reco::DeDxData> >(edm::InputTag("dedxHarmonic2"));
+  
+  // dEdx source - configurable, empty InputTag means disabled
+  // Also need track->PackedCandidate mapping for MiniAOD dEdx lookup
+  edm::InputTag dedxTag = theParameters.getParameter<edm::InputTag>("dedxSrc");
+  useDeDx_ = !dedxTag.label().empty();
+  if(useDeDx_) {
+    token_dedx = iC.consumes<edm::ValueMap<reco::DeDxData> >(dedxTag);
+    token_track2pc = iC.consumes<std::vector<edm::Ptr<pat::PackedCandidate>>>(
+        theParameters.getParameter<edm::InputTag>("trackRecoAlgorithm"));
+  }
 
   // Second, initialize post-fit cuts
   mPiKCutMin = theParameters.getParameter<double>(string("mPiKCutMin"));
@@ -148,7 +157,10 @@ void DStarFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup
   using std::endl;
   using namespace reco;
   using namespace edm;
-  using namespace std; 
+  using namespace std;
+  
+  // Add iostream for debugging
+  #include <iostream> 
 
   typedef ROOT::Math::SMatrix<double, 3, 3, ROOT::Math::MatRepSym<double, 3> > SMatrixSym3D;
   typedef ROOT::Math::SVector<double, 3> SVector3;
@@ -166,6 +178,7 @@ void DStarFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup
   Handle<reco::BeamSpot> theBeamSpotHandle;
   ESHandle<MagneticField> bFieldHandle;
   Handle<edm::ValueMap<reco::DeDxData> > dEdxHandle;
+  Handle<std::vector<edm::Ptr<pat::PackedCandidate>>> track2pcHandle;
 
   // Get the tracks, vertices from the event, and get the B-field record
   //  from the EventSetup
@@ -173,7 +186,10 @@ void DStarFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup
   iEvent.getByToken(token_vertices, theVertexHandle);
   iEvent.getByToken(token_d0cand, theD0Handle);
   iEvent.getByToken(token_beamSpot, theBeamSpotHandle);  
-  iEvent.getByToken(token_dedx, dEdxHandle);
+  if(useDeDx_) {
+    iEvent.getByToken(token_dedx, dEdxHandle);
+    iEvent.getByToken(token_track2pc, track2pcHandle);
+  }
 
 
   if( !theTrackHandle->size() ) return;
@@ -312,11 +328,14 @@ void DStarFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup
 //      double ptErr_pos = positiveTrackRef->ptError();
 //      double ptErr_neg = negativeTrackRef->ptError();
 //
-      // Extract dEdx for slow pion
+      // Extract dEdx for slow pion - uses PackedCandidate mapping for MiniAOD
       double dedx_slowPion = -999.;
-      if(dEdxHandle.isValid()){
-        const edm::ValueMap<reco::DeDxData> dEdxTrack = *dEdxHandle.product();
-        dedx_slowPion = dEdxTrack[pionTrackRef].dEdx();
+      if(dEdxHandle.isValid() && track2pcHandle.isValid()){
+        const edm::ValueMap<reco::DeDxData>& dEdxMap = *dEdxHandle.product();
+        const auto& track2pc = *track2pcHandle.product();
+        auto pionPC = track2pc.at(pionTrackRef.key());
+        if(pionPC.isNonnull() && dEdxMap.contains(pionPC.id()))
+          dedx_slowPion = dEdxMap[pionPC].dEdx();
       }
 
 //      // Fill the vector of TransientTracks to send to KVF
@@ -358,47 +377,74 @@ void DStarFitter::fitAll(const edm::Event& iEvent, const edm::EventSetup& iSetup
        reco::Candidate* dau1 = theD0.daughter(1);
        int slowPionCharge = pionTrackRef->charge();
 
-       reco::Candidate* kaonCand = nullptr;
+       // Verify D0 daughters have opposite charges (required for D0: K- pi+ or K+ pi-)
+       if (dau0->charge() == 0 || dau1->charge() == 0) continue; // Skip if neutral
+       if (dau0->charge() * dau1->charge() >= 0) continue; // Must have opposite charges
+
+       // Process both right-sign and wrong-sign in the same loop
+       // Right-sign: D*+ → K- π+ + slow π+  or D*- → K+ π- + slow π-
+       // Wrong-sign: D*+ → K+ π- + slow π+  or D*- → K- π+ + slow π-
+       // Since D0 daughters have opposite charges, both combinations are always possible
+       // We'll process both: first right-sign, then wrong-sign (if enabled)
+       
+       // Determine which charge we need for kaon based on slow pion and sign
+       int requiredKaonCharge;
+       if (slowPionCharge > 0) { // D*+ case
+               requiredKaonCharge = isWrongSign ? 1 : -1; // Wrong-sign: K+, Right-sign: K-
+       } else { // D*- case
+               requiredKaonCharge = isWrongSign ? -1 : 1; // Wrong-sign: K-, Right-sign: K+
+       }
+       
+       // Find the daughter with the required charge for kaon
+       [[maybe_unused]] reco::Candidate* kaonCand = nullptr;
        [[maybe_unused]] reco::Candidate* pionCand = nullptr;
-
-
-       if (dau0->mass() > dau1->mass()) {
+       
+       if (dau0->charge() == requiredKaonCharge) {
                kaonCand = dau0;
                pionCand = dau1;
-       } else {
+       } else if (dau1->charge() == requiredKaonCharge) {
                kaonCand = dau1;
                pionCand = dau0;
-       }
-       
-
-       
-
-       // For D*+: K- pi+ followed by slow pi+
-       // For D*-: K+ pi- followed by slow pi-
-       if (slowPionCharge > 0) { // D*+ case
-               if (kaonCand->charge() > 0) continue;
-       } else { 
-               if (kaonCand->charge() < 0) continue;
+       } else {
+               // Required charge not found, skip
+               continue;
        }
 
+       // Check if pion track is the same as any D0 daughter track (avoid double counting)
+       if(isSameTrack(&thePiTrack, dau0->bestTrack())) continue;
+       if(isSameTrack(&thePiTrack, dau1->bestTrack())) continue;
 
+       // Verify tracks are valid before creating TransientTracks
+       if (!dau0->bestTrack() || !dau1->bestTrack()) continue;
+       if (dau0->bestTrack()->pt() <= 0 || dau1->bestTrack()->pt() <= 0) continue;
 
        reco::TransientTrack ttk0(*dau0->bestTrack(), magField);
        reco::TransientTrack ttk1(*dau1->bestTrack(), magField);
+       
+       // Verify TransientTracks are valid
+       if (!ttk0.isValid() || !ttk1.isValid()) continue;
        float dau0mass =  dau0->mass();
        float dau1mass =  dau1->mass();
        d0Daus.push_back(pFactory.particle(ttk0,dau0mass,chi,ndf,D0MassD0_sigma));
        d0Daus.push_back(pFactory.particle(ttk1,dau1mass,chi,ndf,D0MassD0_sigma));
+
+       // Verify pion TransientTrack is valid before creating kinematic particle
+       if (!pionTransTkPtr->isValid()) continue;
 
        KinematicParticleVertexFitter kpvFitter;
        RefCountedKinematicTree d0Tree =  kpvFitter.fit(d0Daus);
       if( !d0Tree->isValid() ) continue;
 
        d0Tree->movePointerToTheTop();
+       RefCountedKinematicParticle d0Particle = d0Tree->currentParticle();
+       if (!d0Particle || !d0Particle->currentState().isValid()) continue;
 
        vector<RefCountedKinematicParticle> dStarParticles;
-       dStarParticles.push_back(d0Tree->currentParticle());
-       dStarParticles.push_back(pFactory.particle(*pionTransTkPtr,piMassDStar,chi,ndf,piMassDStar_sigma));
+       dStarParticles.push_back(d0Particle);
+       
+       RefCountedKinematicParticle pionParticle = pFactory.particle(*pionTransTkPtr,piMassDStar,chi,ndf,piMassDStar_sigma);
+       if (!pionParticle || !pionParticle->currentState().isValid()) continue;
+       dStarParticles.push_back(pionParticle);
 
        KinematicParticleVertexFitter dStarFitter;
        RefCountedKinematicTree dStarVertex;
@@ -640,4 +686,30 @@ void DStarFitter::resetAll() {
     mvaVals_.clear();
     dcaVals_.clear();
     dcaErrs_.clear();
+}
+
+bool DStarFitter::isSameTrack(const reco::Track* trk1, const reco::Track* trk2, double tolerance) const {
+  // Compare tracks by their parameters to avoid double counting
+  if (!trk1 || !trk2) return false;
+  
+  // First check: if pointers are the same, tracks are definitely the same
+  if (trk1 == trk2) return true;
+  
+  // Second check: compare track parameters (needed when tracks come from different collections)
+  // Check if tracks have same charge
+  if (trk1->charge() != trk2->charge()) return false;
+  
+  // Compare kinematic parameters with tolerance
+  // Use a more reasonable tolerance (0.001 = 0.1%) for track comparisons
+  double effectiveTolerance = (tolerance < 1e-4) ? 0.001 : tolerance;
+  if (fabs(trk1->pt() - trk2->pt()) > effectiveTolerance * trk1->pt()) return false;
+  if (fabs(trk1->eta() - trk2->eta()) > effectiveTolerance) return false;
+  
+  // Compare phi with wrapping
+  double dphi = trk1->phi() - trk2->phi();
+  while (dphi > M_PI) dphi -= 2*M_PI;
+  while (dphi < -M_PI) dphi += 2*M_PI;
+  if (fabs(dphi) > effectiveTolerance) return false;
+  
+  return true;
 }

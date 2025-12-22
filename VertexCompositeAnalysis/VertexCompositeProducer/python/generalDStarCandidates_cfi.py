@@ -41,6 +41,9 @@ generalDStarCandidates = cms.EDProducer("DStarProducer",
 
     isWrongSign = cms.bool(False),
 
+    # dEdx source (empty = disabled)
+    dedxSrc = cms.InputTag(""),
+
 # MVA
 
     useAnyMVA = cms.bool(False),
