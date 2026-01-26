@@ -1,0 +1,12 @@
+<use   name="root"/>
+<use   name="DataFormats/Common"/>
+<use   name="DataFormats/TrackReco"/>
+<use   name="DataFormats/HepMCCandidate"/>
+<use   name="SimDataFormats/GeneratorProducts"/>
+<use   name="HepMC"/>
+<use   name="FWCore/Framework"/>
+<use   name="FWCore/ServiceRegistry"/>
+<use   name="FWCore/PluginManager"/>
+<use   name="FWCore/ParameterSet"/>
+<use   name="PhysicsTools/UtilAlgos"/>
+<flags   EDM_PLUGIN="1"/>
