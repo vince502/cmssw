@@ -1,0 +1,8 @@
+<![CDATA[<lcgdict>
+  <!-- Nested vector types for TTree branches -->
+  <class name="std::vector<std::vector<float>>"/>
+  <class name="std::vector<std::vector<short>>"/>
+  <class name="std::vector<std::vector<bool>>"/>
+  <class name="std::vector<std::vector<int>>"/>
+</lcgdict>
+]]>
