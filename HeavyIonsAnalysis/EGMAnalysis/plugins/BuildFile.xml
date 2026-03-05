@@ -1,5 +1,6 @@
 <use name="CommonTools/UtilAlgos"/>
 <use name="DataFormats/EgammaCandidates"/>
+<use name="DataFormats/Math"/>
 <use name="DataFormats/PatCandidates"/>
 <use name="Geometry/CaloGeometry"/>
 <use name="Geometry/Records"/>

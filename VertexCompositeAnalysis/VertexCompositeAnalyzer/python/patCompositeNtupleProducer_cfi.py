@@ -2,7 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 # Base configuration for PATCompositeNtupleProducer
 patCompositeNtupleProducerDefault = cms.EDAnalyzer('PATCompositeNtupleProducer',
-    # Candidate type: D0, D04P, DStar, DStar5P, BPlus, BZero, Bc
+    # Candidate type: D0, D04P, DStar, DStar5P, BPlus, BZero, Bc, BcSemiLep
     candidateType = cms.string('D0'),
     
     # Input collections
@@ -91,4 +91,14 @@ bcNtupleProducer = patCompositeNtupleProducerDefault.clone(
     twoLayerDecay = cms.untracked.bool(True),
     doMuon = cms.untracked.bool(True),
     nGrandDaughters = cms.untracked.uint32(2),
+)
+
+# Bc semileptonic analyzer (J/psi + lepton + neutrino)
+bcSemiLepNtupleProducer = patCompositeNtupleProducerDefault.clone(
+    candidateType = 'BcSemiLep',
+    candidateSrc = cms.InputTag('bcSemiLepAll', 'BcToJpsiLepNu'),
+    twoLayerDecay = cms.untracked.bool(True),
+    nDaughters = cms.untracked.uint32(3),
+    nGrandDaughters = cms.untracked.uint32(2),
+    genealogyInfo = cms.untracked.bool(True),
 )

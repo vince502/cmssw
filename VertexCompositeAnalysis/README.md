@@ -28,6 +28,7 @@ VertexCompositeAnalysis/
 | B⁺ | `BDiLeptonProducer` | B⁺ → J/ψ K⁺ | J/ψ(→ℓℓ) + K |
 | B⁰ | `BDiLeptonProducer` | B⁰ → J/ψ K*⁰ | J/ψ(→ℓℓ) + K* |
 | Bc | `BDiLeptonProducer` | Bc → J/ψ π⁺ | J/ψ(→ℓℓ) + π |
+| Bc (visible semileptonic) | `BcSemiLeptonicProducer` | Bc → J/ψ ℓ ν (ν missing) | (μμ or ee) + (μ or e) |
 
 ## Key Features
 
@@ -71,6 +72,40 @@ process.d0Candidates = generalD0CandidatesNew.clone(
 )
 
 process.d0Path = cms.Path(process.d0Candidates)
+```
+
+### Bc Visible Semileptonic (4-channel)
+
+```python
+from VertexCompositeAnalysis.VertexCompositeProducer.generalBcSemiLeptonicCandidates_cfi import generalBcSemiLeptonicCandidates
+
+process.bcSemiLep = generalBcSemiLeptonicCandidates.clone(
+    jpsiMuMuSrc = cms.InputTag("onia2MuMuPatGlbGlb"),
+    jpsiEESrc = cms.InputTag("onia2ElectronElectronPatGlbGlb"),
+    muonSrc = cms.InputTag("patMuonsWithTrigger"),
+    electronSrc = cms.InputTag("patElectrons"),
+)
+
+process.bcSemiLepPath = cms.Path(process.bcSemiLep)
+```
+
+Output instances from this module:
+- `BcToJpsiMuMuMuNu`
+- `BcToJpsiMuMuENu`
+- `BcToJpsiEEMuNu`
+- `BcToJpsiEEENu`
+- `BcToJpsiLepNu` (union of all channels)
+- `BcToJpsiCrossLepNu` (union of `BcToJpsiMuMuENu` and `BcToJpsiEEMuNu`)
+
+Cross-channel only config helper:
+
+```python
+from VertexCompositeAnalysis.VertexCompositeProducer.generalBcSemiLeptonicCandidates_cfi import (
+    bcToJpsiMuMuEAndEEMuCandidates,
+)
+
+process.bcSemiLepCross = bcToJpsiMuMuEAndEEMuCandidates.clone()
+process.bcSemiLepCrossPath = cms.Path(process.bcSemiLepCross)
 ```
 
 ### Running the Analyzer

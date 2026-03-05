@@ -29,8 +29,8 @@ UsePropToMuonSt = True # whether to use L1 propagated muons (works only for mini
 pdgId = 443 # J/Psi : 443, Y(1S) : 553
 useMomFormat = "vector" # default "array" for TClonesArray of TLorentzVector. Use "vector" for std::vector<float> of pt, eta, phi, M
 
-trkMass = 0.13957018 #0.13957018 for a pion, 0.1056583715 for a muon
-partType = 211 #13 for muon, 211 for pion
+trkMass = 0.1056583715 #0.13957018 for a pion, 0.1056583715 for a muon
+partType = 13 #13 for muon, 211 for pion
 #----------------------------------------------------------------------------
 
 # Print Onia Tree settings:
@@ -126,7 +126,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, globalTag, '')
 from HiAnalysis.HiOnia.oniaTreeAnalyzer_cff import oniaTreeAnalyzer
 oniaTreeAnalyzer(process,
                  muonTriggerList=triggerList, #HLTProName=HLTProcess,
-                 muonSelection=muonSelection, L1Stage=2, isMC=isMC, pdgID=pdgId, outputFileName=options.outputFile, doTrimu=doTrimuons#, OnlySingleMuons=True
+                 muonSelection=muonSelection, L1Stage=2, isMC=isMC, pdgID=pdgId, outputFileName=options.outputFile, doTrimu=doTrimuons, doDimuTrk=doDimuonTrk#, OnlySingleMuons=True
 )
 
 process.onia2MuMuPatGlbGlb.DimuTrkSelection      = cms.string("4.8 < mass && mass < 6.9 && abs(daughter('muon1').innerTrack.dz - daughter('track').track.dz) < 0.5 && daughter('track').pt > 0.3")#delete this abs(daughter('track').track.dxy/daughter('track').track.dxyError)>1.3 cut : not efficient
@@ -261,8 +261,10 @@ if miniAOD:
   changeToMiniAOD(process)
   process.unpackedMuons.addPropToMuonSt = cms.bool(UsePropToMuonSt)
 
-  if applyEventSel:
+  if applyEventSel and hasattr(process, "beamScrapingFilter"):
     process.oniaTreeAna.replace(process.hionia, process.beamScrapingFilter * process.hionia ) # must be called after unpacking
+  elif applyEventSel:
+    print("[WARN] beamScrapingFilter not found in process; skipping it in oniaTreeAna")
 
 #----------------------------------------------------------------------------
 #Options:

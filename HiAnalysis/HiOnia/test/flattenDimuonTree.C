@@ -4,6 +4,7 @@
 #include "TFile.h"
 #include "TTree.h"
 #include "TLorentzVector.h"
+#include "TClonesArray.h"
 #include <iostream>
 #include <vector>
 
@@ -29,17 +30,14 @@ void flattenDimuonTree(const char* inputFile = "combined_V1.root",
     // Input branches - Event info
     UInt_t eventNb, runNb, LS;
     Float_t zVtx;
-    Int_t Centrality;
+    Int_t Centrality = 0;
     Short_t nPV;
     
     // Input branches - Dimuon
     Short_t Reco_QQ_size;
     Short_t Reco_QQ_type[1000];
     Short_t Reco_QQ_sign[1000];
-    std::vector<float> *Reco_QQ_4mom_pt = 0;
-    std::vector<float> *Reco_QQ_4mom_eta = 0;
-    std::vector<float> *Reco_QQ_4mom_phi = 0;
-    std::vector<float> *Reco_QQ_4mom_m = 0;
+    TClonesArray *Reco_QQ_4mom = 0;
     Short_t Reco_QQ_mupl_idx[1000];
     Short_t Reco_QQ_mumi_idx[1000];
     ULong64_t Reco_QQ_trig[1000];
@@ -53,10 +51,7 @@ void flattenDimuonTree(const char* inputFile = "combined_V1.root",
     Short_t Reco_mu_size;
     Short_t Reco_mu_type[1000];
     Short_t Reco_mu_charge[1000];
-    std::vector<float> *Reco_mu_4mom_pt = 0;
-    std::vector<float> *Reco_mu_4mom_eta = 0;
-    std::vector<float> *Reco_mu_4mom_phi = 0;
-    std::vector<float> *Reco_mu_4mom_m = 0;
+    TClonesArray *Reco_mu_4mom = 0;
     ULong64_t Reco_mu_trig[1000];
     Bool_t Reco_mu_InTightAcc[1000];
     Bool_t Reco_mu_InLooseAcc[1000];
@@ -82,17 +77,16 @@ void flattenDimuonTree(const char* inputFile = "combined_V1.root",
     tree->SetBranchAddress("runNb", &runNb);
     tree->SetBranchAddress("LS", &LS);
     tree->SetBranchAddress("zVtx", &zVtx);
-    tree->SetBranchAddress("Centrality", &Centrality);
+    if (tree->GetBranch("Centrality")) {
+        tree->SetBranchAddress("Centrality", &Centrality);
+    }
     tree->SetBranchAddress("nPV", &nPV);
     
     // Set branch addresses - Dimuon
     tree->SetBranchAddress("Reco_QQ_size", &Reco_QQ_size);
     tree->SetBranchAddress("Reco_QQ_type", Reco_QQ_type);
     tree->SetBranchAddress("Reco_QQ_sign", Reco_QQ_sign);
-    tree->SetBranchAddress("Reco_QQ_4mom_pt", &Reco_QQ_4mom_pt);
-    tree->SetBranchAddress("Reco_QQ_4mom_eta", &Reco_QQ_4mom_eta);
-    tree->SetBranchAddress("Reco_QQ_4mom_phi", &Reco_QQ_4mom_phi);
-    tree->SetBranchAddress("Reco_QQ_4mom_m", &Reco_QQ_4mom_m);
+    tree->SetBranchAddress("Reco_QQ_4mom", &Reco_QQ_4mom);
     tree->SetBranchAddress("Reco_QQ_mupl_idx", Reco_QQ_mupl_idx);
     tree->SetBranchAddress("Reco_QQ_mumi_idx", Reco_QQ_mumi_idx);
     tree->SetBranchAddress("Reco_QQ_trig", Reco_QQ_trig);
@@ -106,10 +100,7 @@ void flattenDimuonTree(const char* inputFile = "combined_V1.root",
     tree->SetBranchAddress("Reco_mu_size", &Reco_mu_size);
     tree->SetBranchAddress("Reco_mu_type", Reco_mu_type);
     tree->SetBranchAddress("Reco_mu_charge", Reco_mu_charge);
-    tree->SetBranchAddress("Reco_mu_4mom_pt", &Reco_mu_4mom_pt);
-    tree->SetBranchAddress("Reco_mu_4mom_eta", &Reco_mu_4mom_eta);
-    tree->SetBranchAddress("Reco_mu_4mom_phi", &Reco_mu_4mom_phi);
-    tree->SetBranchAddress("Reco_mu_4mom_m", &Reco_mu_4mom_m);
+    tree->SetBranchAddress("Reco_mu_4mom", &Reco_mu_4mom);
     tree->SetBranchAddress("Reco_mu_trig", Reco_mu_trig);
     tree->SetBranchAddress("Reco_mu_InTightAcc", Reco_mu_InTightAcc);
     tree->SetBranchAddress("Reco_mu_InLooseAcc", Reco_mu_InLooseAcc);
@@ -264,11 +255,13 @@ void flattenDimuonTree(const char* inputFile = "combined_V1.root",
                 continue;
             }
             
-            // Fill dimuon info
-            QQ_mass = (*Reco_QQ_4mom_m)[iQQ];
-            QQ_pt = (*Reco_QQ_4mom_pt)[iQQ];
-            QQ_eta = (*Reco_QQ_4mom_eta)[iQQ];
-            QQ_phi = (*Reco_QQ_4mom_phi)[iQQ];
+            // Fill dimuon info (array mom4 format via TClonesArray)
+            TLorentzVector* qqP4 = (Reco_QQ_4mom ? (TLorentzVector*)Reco_QQ_4mom->At(iQQ) : nullptr);
+            if (!qqP4) continue;
+            QQ_mass = qqP4->M();
+            QQ_pt = qqP4->Pt();
+            QQ_eta = qqP4->Eta();
+            QQ_phi = qqP4->Phi();
             QQ_type = Reco_QQ_type[iQQ];
             QQ_sign = Reco_QQ_sign[iQQ];
             QQ_ctau = Reco_QQ_ctau[iQQ];
@@ -279,10 +272,13 @@ void flattenDimuonTree(const char* inputFile = "combined_V1.root",
             QQ_trigBits = Reco_QQ_trig[iQQ];
             
             // Fill muon+ info
-            mupl_pt = (*Reco_mu_4mom_pt)[idx_pl];
-            mupl_eta = (*Reco_mu_4mom_eta)[idx_pl];
-            mupl_phi = (*Reco_mu_4mom_phi)[idx_pl];
-            mupl_mass = (*Reco_mu_4mom_m)[idx_pl];
+            TLorentzVector* muplP4 = (Reco_mu_4mom ? (TLorentzVector*)Reco_mu_4mom->At(idx_pl) : nullptr);
+            TLorentzVector* mumiP4 = (Reco_mu_4mom ? (TLorentzVector*)Reco_mu_4mom->At(idx_mi) : nullptr);
+            if (!muplP4 || !mumiP4) continue;
+            mupl_pt = muplP4->Pt();
+            mupl_eta = muplP4->Eta();
+            mupl_phi = muplP4->Phi();
+            mupl_mass = muplP4->M();
             mupl_charge = Reco_mu_charge[idx_pl];
             mupl_type = Reco_mu_type[idx_pl];
             mupl_InTightAcc = Reco_mu_InTightAcc[idx_pl];
@@ -302,10 +298,10 @@ void flattenDimuonTree(const char* inputFile = "combined_V1.root",
             mupl_trigBits = Reco_mu_trig[idx_pl];
             
             // Fill muon- info
-            mumi_pt = (*Reco_mu_4mom_pt)[idx_mi];
-            mumi_eta = (*Reco_mu_4mom_eta)[idx_mi];
-            mumi_phi = (*Reco_mu_4mom_phi)[idx_mi];
-            mumi_mass = (*Reco_mu_4mom_m)[idx_mi];
+            mumi_pt = mumiP4->Pt();
+            mumi_eta = mumiP4->Eta();
+            mumi_phi = mumiP4->Phi();
+            mumi_mass = mumiP4->M();
             mumi_charge = Reco_mu_charge[idx_mi];
             mumi_type = Reco_mu_type[idx_mi];
             mumi_InTightAcc = Reco_mu_InTightAcc[idx_mi];

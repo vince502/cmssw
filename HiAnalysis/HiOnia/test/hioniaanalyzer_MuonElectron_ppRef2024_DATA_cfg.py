@@ -105,9 +105,11 @@ oniaTreeAnalyzer(process,
                  outputFileName=options.outputFile,
                  doTrimu=doTrimuons)
 
-# For Z -> mumu at high mass
-process.onia2MuMuPatGlbGlb.dimuonSelection = cms.string("mass > 60 && charge==0 && abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25")
-process.onia2MuMuPatGlbGlb.lowerPuritySelection = cms.string("pt > 15 && abs(eta) < 2.4")
+# Bc semileptonic preselection: keep J/psi + psi(2S) dimuon region
+process.onia2MuMuPatGlbGlb.dimuonSelection = cms.string(
+    "mass > 2.2 && mass < 4.0 && charge==0 && abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25"
+)
+process.onia2MuMuPatGlbGlb.lowerPuritySelection = cms.string("pt > 1.0 && abs(eta) < 2.4 && isTrackerMuon")
 if applyCuts:
     process.onia2MuMuPatGlbGlb.LateDimuonSel = cms.string("userFloat(\"vProb\")>0.001")
 
@@ -137,13 +139,12 @@ electronTriggerList = [
 # Load electron producer
 process.load('HiSkim.HiOnia2EE.onia2EEPAT_cff')
 
-# Configure for J/psi -> ee or Z -> ee selection
+# Bc semileptonic preselection: keep J/psi + psi(2S) dielectron region
 process.onia2ElectronElectronPatGlbGlb.dielectronSelection = cms.string(
-    "mass > 60 && charge == 0"  # Z -> ee
+    "mass > 2.2 && mass < 4.0 && charge == 0"
 )
-process.onia2ElectronElectronPatGlbGlb.higherPuritySelection = cms.string("pt > 15.0 && abs(eta) < 2.4")
-process.onia2ElectronElectronPatGlbGlb.lowerPuritySelection = cms.string("pt > 15.0 && abs(eta) < 2.4")
-process.onia2ElectronElectronPatGlbGlb.electrons = cms.InputTag("slimmedElectrons")
+process.onia2ElectronElectronPatGlbGlb.higherPuritySelection = cms.string("pt > 1.5 && abs(eta) < 2.4")
+process.onia2ElectronElectronPatGlbGlb.lowerPuritySelection = cms.string("pt > 1.0 && abs(eta) < 2.4")
 process.onia2ElectronElectronPatGlbGlb.primaryVertexTag = cms.InputTag("offlineSlimmedPrimaryVertices")
 process.onia2ElectronElectronPatGlbGlb.conversions = cms.InputTag("reducedEgamma", "reducedConversions")
 process.onia2ElectronElectronPatGlbGlb.doTriggerMatching = False
@@ -152,7 +153,7 @@ process.onia2ElectronElectronPatGlbGlb.triggerPaths = cms.vstring(*electronTrigg
 # Electron analyzer
 from HiAnalysis.HiOnia.hioniaElectronAnalyzer_cfi import hioniaElectrons
 process.hioniaElectrons = hioniaElectrons.clone(
-    srcElectron = cms.InputTag('slimmedElectrons'),  # ppRef: no HI corrections needed
+    srcElectron = cms.InputTag('unpackedElectrons'),
     srcDielectron = cms.InputTag('onia2ElectronElectronPatGlbGlb'),
     primaryVertexTag = cms.InputTag('offlineSlimmedPrimaryVertices'),
     beamSpotTag = cms.InputTag('offlineBeamSpot'),
@@ -197,25 +198,36 @@ if miniAOD:
     from HiSkim.HiOnia2MuMu.onia2MuMuPAT_cff import changeToMiniAOD
     changeToMiniAOD(process)
     process.unpackedMuons.addPropToMuonSt = cms.bool(UsePropToMuonSt)
+    # Canonical MiniAOD vertex source for muon-side modules
+    process.onia2MuMuPatGlbGlb.primaryVertexTag = cms.InputTag("unpackedTracksAndVertices")
+    process.patMuonsWithoutTrigger.pvSrc = cms.InputTag("unpackedTracksAndVertices")
+    process.hionia.primaryVertexTag = cms.InputTag("unpackedTracksAndVertices")
 
 process.oniaTreeAna = cms.Path(process.oniaTreeAna)
 
 if miniAOD and applyEventSel:
-    process.oniaTreeAna.replace(process.hionia, process.beamScrapingFilter * process.hionia)
+    if hasattr(process, "beamScrapingFilter"):
+        process.oniaTreeAna.replace(process.hionia, process.beamScrapingFilter * process.hionia)
+    else:
+        print("[WARN] beamScrapingFilter missing; skipping beam-scraping filter insertion")
 
 # Load required modules for electron analysis
 process.load('TrackingTools.TransientTrack.TransientTrackBuilder_cfi')
+process.load('HeavyIonsAnalysis.EGMAnalysis.unpackedElectrons_cfi')
+process.unpackedElectrons.primaryElectrons = cms.InputTag('slimmedElectrons')
+process.unpackedElectrons.secondaryElectrons = cms.InputTag('slimmedLowPtElectrons')
+process.unpackedElectrons.preferPrimary = cms.bool(True)
 
-# Update electron source for onia producer (use standard slimmedElectrons for ppRef)
+# Update electron source for onia producer to use de-duplicated merged electrons.
+process.onia2ElectronElectronPatGlbGlb.electrons = cms.InputTag('unpackedElectrons')
 process.onia2ElectronElectronPatGlbGlb.srcTracks = cms.InputTag('unpackedTracksAndVertices')
 process.onia2ElectronElectronPatGlbGlb.primaryVertexTag = cms.InputTag('unpackedTracksAndVertices')
+process.hioniaElectrons.primaryVertexTag = cms.InputTag('unpackedTracksAndVertices')
 
-# Add electron analysis to muon path
-process.oniaTreeAna = cms.Path(
-    process.oniaTreeAna *
-    process.onia2ElectronElectronPatGlbGlb *
-    process.hioniaElectrons
-)
+# Add electron analysis modules to existing path
+process.oniaTreeAna *= process.unpackedElectrons
+process.oniaTreeAna *= process.onia2ElectronElectronPatGlbGlb
+process.oniaTreeAna *= process.hioniaElectrons
 
 #----------------------------------------------------------------------------
 # Input/Output Configuration

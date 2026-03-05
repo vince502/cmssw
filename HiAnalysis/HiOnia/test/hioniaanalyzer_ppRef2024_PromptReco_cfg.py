@@ -267,4 +267,9 @@ process.options   = cms.untracked.PSet(wantSummary = cms.untracked.bool(True))
 
 process.options.numberOfThreads = 2
 
+import FWCore.PythonUtilities.LumiList as LumiList
+process.source.lumisToProcess = LumiList.LumiList(
+    filename='/eos/user/c/cmsdqm/www/CAF/certification/Collisions24/Cert_Collisions2024_ppref_387474_387721_Muon.json'
+).getVLuminosityBlockRange()
+
 process.schedule  = cms.Schedule( process.oniaTreeAna )

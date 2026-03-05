@@ -1,6 +1,9 @@
 // Example analysis script for flattened dielectron tree
 // Usage: root -l -b -q 'plotFlatDielectrons.C("FlatDielectronTree.root")'
 
+#include <fstream>
+#include <iostream>
+
 void plotFlatDielectrons(const char* inputFile = "FlatDielectronTree.root") {
     
     TFile* f = TFile::Open(inputFile);
@@ -17,34 +20,37 @@ void plotFlatDielectrons(const char* inputFile = "FlatDielectronTree.root") {
     
     std::cout << "Tree has " << tree->GetEntries() << " dielectron candidates" << std::endl;
     
-    // Example selections
+    // Bc semileptonic inspection selections (J/psi + psi(2S) window)
     TCut baseCut = "ee_charge == 0";  // Opposite sign
+    TCut massWindow = "ee_mass > 2.2 && ee_mass < 4.0";
+    TCut jpsiWindow = "ee_mass > 2.9 && ee_mass < 3.3";
+    TCut psi2sWindow = "ee_mass > 3.55 && ee_mass < 3.85";
     TCut vtxCut = "ee_vProb > 0.01";  // Good vertex
     TCut kineCut = "ele1_pt > 3.0 && ele2_pt > 3.0 && abs(ele1_eta) < 2.4 && abs(ele2_eta) < 2.4";
     TCut isoCut = "ele1_pfChIso < 5.0 && ele2_pfChIso < 5.0";  // Loose isolation
     TCut convCut = "ele1_convVeto == 1 && ele2_convVeto == 1";  // Conversion veto
     TCut hOverECut = "ele1_hOverE < 0.15 && ele2_hOverE < 0.15";  // H/E cut
     
-    TCut looseCut = baseCut && vtxCut && kineCut;
+    TCut looseCut = baseCut && massWindow && vtxCut && kineCut;
     TCut tightCut = looseCut && isoCut && convCut && hOverECut;
     
     // Create canvas
     TCanvas* c1 = new TCanvas("c1", "Dielectron Analysis", 1600, 1200);
     c1->Divide(3, 2);
     
-    // 1. Invariant mass (loose cuts)
+    // 1. Invariant mass (loose cuts) in 2.2-4.0 GeV
     c1->cd(1);
-    tree->Draw("ee_mass>>h1(100, 2.5, 3.5)", looseCut, "");
+    tree->Draw("ee_mass>>h1(180, 2.2, 4.0)", looseCut, "");
     TH1F* h1 = (TH1F*)gDirectory->Get("h1");
-    h1->SetTitle("J/#psi #rightarrow e^{+}e^{-} (Loose);M_{ee} [GeV/c^{2}];Candidates");
+    h1->SetTitle("J/#psi + #psi(2S) #rightarrow e^{+}e^{-} (Loose);M_{ee} [GeV/c^{2}];Candidates");
     h1->SetLineColor(kBlue);
     h1->SetLineWidth(2);
     
-    // 2. Invariant mass (tight cuts)
+    // 2. Invariant mass (tight cuts) in 2.2-4.0 GeV
     c1->cd(2);
-    tree->Draw("ee_mass>>h2(100, 2.5, 3.5)", tightCut, "");
+    tree->Draw("ee_mass>>h2(180, 2.2, 4.0)", tightCut, "");
     TH1F* h2 = (TH1F*)gDirectory->Get("h2");
-    h2->SetTitle("J/#psi #rightarrow e^{+}e^{-} (Tight);M_{ee} [GeV/c^{2}];Candidates");
+    h2->SetTitle("J/#psi + #psi(2S) #rightarrow e^{+}e^{-} (Tight);M_{ee} [GeV/c^{2}];Candidates");
     h2->SetLineColor(kRed);
     h2->SetLineWidth(2);
     
@@ -75,20 +81,54 @@ void plotFlatDielectrons(const char* inputFile = "FlatDielectronTree.root") {
     h6->SetTitle("Vertex Probability;Vertex Prob;Candidates");
     h6->SetLineColor(kMagenta+2);
     h6->SetLineWidth(2);
-    h6->SetLogy();
+    gPad->SetLogy();
     
-    c1->SaveAs("FlatDielectron_Plots.png");
+    c1->SaveAs("FlatDielectron_JpsiPsi2S_Plots.png");
+    c1->SaveAs("FlatDielectron_JpsiPsi2S_Plots.pdf");
     
     // Print statistics
+    Long64_t nTotal = tree->GetEntries();
+    Long64_t nOS = tree->GetEntries(baseCut);
+    Long64_t nMass = tree->GetEntries(baseCut && massWindow);
+    Long64_t nLoose = tree->GetEntries(looseCut);
+    Long64_t nTight = tree->GetEntries(tightCut);
+    Long64_t nJpsiLoose = tree->GetEntries(looseCut && jpsiWindow);
+    Long64_t nPsi2SLoose = tree->GetEntries(looseCut && psi2sWindow);
+    Long64_t nJpsiTight = tree->GetEntries(tightCut && jpsiWindow);
+    Long64_t nPsi2STight = tree->GetEntries(tightCut && psi2sWindow);
+
     std::cout << "\n=== Selection Statistics ===" << std::endl;
-    std::cout << "Total candidates: " << tree->GetEntries() << std::endl;
-    std::cout << "After loose cuts: " << tree->GetEntries(looseCut) << std::endl;
-    std::cout << "After tight cuts: " << tree->GetEntries(tightCut) << std::endl;
+    std::cout << "Total candidates: " << nTotal << std::endl;
+    std::cout << "Opposite-sign: " << nOS << std::endl;
+    std::cout << "In 2.2-4.0 GeV: " << nMass << std::endl;
+    std::cout << "After loose cuts: " << nLoose << std::endl;
+    std::cout << "After tight cuts: " << nTight << std::endl;
+    std::cout << "J/psi loose/tight: " << nJpsiLoose << " / " << nJpsiTight << std::endl;
+    std::cout << "psi(2S) loose/tight: " << nPsi2SLoose << " / " << nPsi2STight << std::endl;
     
     // Print some example events
     std::cout << "\n=== Example Candidates (tight cuts) ===" << std::endl;
     tree->Scan("runNb:eventNb:ee_mass:ee_pt:ele1_pt:ele2_pt:ele1_pfChIso:ele2_pfChIso", 
                tightCut, "", 10);
     
-    std::cout << "\nPlots saved to: FlatDielectron_Plots.png" << std::endl;
+    // Write plain-text summary for quick inspection
+    std::ofstream txt("FlatDielectron_JpsiPsi2S_Summary.txt");
+    txt << "Flat dielectron summary (Bc semileptonic inspection)\n";
+    txt << "Input file: " << inputFile << "\n";
+    txt << "Mass window: 2.2 < m(ee) < 4.0 GeV\n";
+    txt << "J/psi window: 2.9 < m(ee) < 3.3 GeV\n";
+    txt << "psi(2S) window: 3.55 < m(ee) < 3.85 GeV\n";
+    txt << "Total candidates: " << nTotal << "\n";
+    txt << "Opposite-sign: " << nOS << "\n";
+    txt << "In 2.2-4.0 GeV: " << nMass << "\n";
+    txt << "Loose: " << nLoose << "\n";
+    txt << "Tight: " << nTight << "\n";
+    txt << "J/psi loose: " << nJpsiLoose << "\n";
+    txt << "J/psi tight: " << nJpsiTight << "\n";
+    txt << "psi(2S) loose: " << nPsi2SLoose << "\n";
+    txt << "psi(2S) tight: " << nPsi2STight << "\n";
+    txt.close();
+
+    std::cout << "\nPlots saved to: FlatDielectron_JpsiPsi2S_Plots.png/.pdf" << std::endl;
+    std::cout << "Text summary: FlatDielectron_JpsiPsi2S_Summary.txt" << std::endl;
 }

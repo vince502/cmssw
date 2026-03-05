@@ -19,6 +19,7 @@
 #include "RecoVertex/KinematicFit/interface/KinematicConstrainedVertexFitter.h"
 #include "RecoVertex/VertexTools/interface/VertexDistanceXY.h"
 #include "RecoVertex/VertexTools/interface/VertexDistance3D.h"
+#include "RecoVertex/AdaptiveVertexFit/interface/AdaptiveVertexFitter.h"
 #include "RecoVertex/KinematicFit/interface/TwoTrackMassKinematicConstraint.h"
 #include "RecoVertex/KinematicFitPrimitives/interface/KinematicParticleFactoryFromTransientTrack.h"
 #include "TMath.h"
@@ -290,21 +291,42 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace reco;
   typedef Candidate::LorentzVector LorentzVector;
 
-  // output collection
+  if (DiElectronTrk_ && doTriElectrons_) {
+    cout << "FATAL ERROR: DiElectronTrk_ and doTriElectrons_ cannot be both true ! Change one of them in the config file !"
+         << endl;
+    return;
+  }
+
+  if (flipJpsiDirection_ > 0 && !doTriElectrons_)
+    cout << " ***** BEWARE !!! Undefined behaviour when flipJpsiDirection option is true, but not doTriElectrons_ !"
+         << endl;
+
+  vector<double> eleMasses;
+  eleMasses.push_back(0.0005109989);
+  eleMasses.push_back(0.0005109989);
+
   unique_ptr<pat::CompositeCandidateCollection> oniaOutput(new pat::CompositeCandidateCollection);
   unique_ptr<pat::CompositeCandidateCollection> trielectronOutput(new pat::CompositeCandidateCollection);
   unique_ptr<pat::CompositeCandidateCollection> dieletrkOutput(new pat::CompositeCandidateCollection);
 
-  // Get event content
-  Handle<reco::BeamSpot> theBeamSpot;
-  iEvent.getByToken(thebeamspotToken_, theBeamSpot);
-  RefVtx = theBeamSpot->position();
+  Vertex thePrimaryV;
+  Vertex theBeamSpotV;
 
-  Handle<reco::VertexCollection> priVtxs;
+  const auto& bField = iSetup.getHandle(magFieldToken_);
+
+  Handle<BeamSpot> theBeamSpot;
+  iEvent.getByToken(thebeamspotToken_, theBeamSpot);
+  BeamSpot bs = *theBeamSpot;
+  theBeamSpotV = Vertex(bs.position(), bs.covariance3D());
+
+  Handle<VertexCollection> priVtxs;
   iEvent.getByToken(thePVsToken_, priVtxs);
-  if (!priVtxs->empty()) {
-    RefVtx = priVtxs->begin()->position();
+  if (priVtxs->begin() != priVtxs->end()) {
+    thePrimaryV = Vertex(*(priVtxs->begin()));
+  } else {
+    thePrimaryV = Vertex(bs.position(), bs.covariance3D());
   }
+  RefVtx = thePrimaryV.position();
 
   Handle<View<pat::Electron> > electrons;
   iEvent.getByToken(electronsToken_, electrons);
@@ -319,7 +341,6 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
 
   auto resolveTriggerPath = [](const std::string& requested, const edm::TriggerNames& names) -> std::string {
     const auto& allNames = names.triggerNames();
-    // Exact match first
     for (const auto& name : allNames) {
       if (name == requested)
         return name;
@@ -371,18 +392,9 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
     }
   }
 
-  const auto &theTTBuilder = iSetup.getHandle(trackBuilderToken_);
+  const auto& theTTBuilder = iSetup.getHandle(trackBuilderToken_);
   KalmanVertexFitter vtxFitter(true);
-
-  //For kinematic constrained fit
-  KinematicParticleFactoryFromTransientTrack pFactory;
-  ParticleMass electron_mass = 0.0005109989;  // electron mass in GeV
-  float electron_sigma = 0.0000000001;
-  ParticleMass jp_mass = 3.09687;
-  MultiTrackKinematicConstraint *jpsi_c = new TwoTrackMassKinematicConstraint(jp_mass);
-  KinematicConstrainedVertexFitter KCfitter;
-
-  TrackCollection electronLess;  // track collection related to PV, minus the 2 electrons
+  TrackCollection electronLess;
 
   int Ntrk = -1;
   std::vector<reco::TrackRef> ourTracks;
@@ -396,9 +408,7 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
         if (track->qualityByName("highPurity") && track->eta() < 2.4 && fabs(track->dxy(RefVtx)) < 0.3 &&
             fabs(track->dz(RefVtx)) < 20) {
           Ntrk++;
-          if (DiElectronTrk_) {
-            ourTracks.push_back(track);
-          }
+          ourTracks.push_back(track);
         }
       }
     }
@@ -415,24 +425,20 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   if (onlySingleElectrons_)
     goto skipElectronLoop;
 
-  // Quarkonia candidates only from electrons
   for (int i = 0; i < ourEleNb; i++) {
-    const pat::Electron &it = ourElectrons[i];
+    const pat::Electron& it = ourElectrons[i];
     for (int j = i + 1; j < ourEleNb; j++) {
-      const pat::Electron &it2 = ourElectrons[j];
-      // one electron must pass tight quality
+      const pat::Electron& it2 = ourElectrons[j];
       if (!(higherPuritySelection_(it) || higherPuritySelection_(it2)))
         continue;
       if (!(it.gsfTrack().isNonnull()) || !(it2.gsfTrack().isNonnull()))
         continue;
 
-      // --- some declarations ---
       std::map<std::string, int> userInt;
       std::map<std::string, float> userFloat;
       std::map<std::string, reco::Vertex> userVertex;
       std::map<std::string, reco::Track> userTrack;
       Vertex theOriginalPV;
-      int flipJpsi = 0;
       TransientVertex myVertex;
       CachingVertex<5> VtxForInvMass;
       Measurement1D MassWErr;
@@ -440,32 +446,25 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       float vChi2 = -100, vNDF = 1;
 
       pat::CompositeCandidate myCand;
-      pat::CompositeCandidate myCandTmp;
-      // ---- no explicit order defined ----
       myCand.addDaughter(it, "electron1");
       myCand.addDaughter(it2, "electron2");
 
-      reco::GsfTrack electron1Trk = (*it.gsfTrack());
-      reco::GsfTrack electron2Trk = (*it2.gsfTrack());
       LorentzVector ele1 = it.p4();
       LorentzVector ele2 = it2.p4();
-
-      // ---- define and set candidate's 4momentum  ----
       LorentzVector jpsi = ele1 + ele2;
       myCand.setP4(jpsi);
       myCand.setCharge(it.charge() + it2.charge());
 
-      // Store electron-specific information
-      userInt["ele1ConvVeto"] = (int)(!ConversionTools::hasMatchedConversion(it, *conversions, theBeamSpot->position()));
-      userInt["ele2ConvVeto"] = (int)(!ConversionTools::hasMatchedConversion(it2, *conversions, theBeamSpot->position()));
-      
+      userInt["ele1ConvVeto"] = static_cast<int>(!ConversionTools::hasMatchedConversion(it, *conversions, theBeamSpot->position()));
+      userInt["ele2ConvVeto"] = static_cast<int>(!ConversionTools::hasMatchedConversion(it2, *conversions, theBeamSpot->position()));
+
       userFloat["ele1SCEta"] = it.superCluster()->eta();
       userFloat["ele2SCEta"] = it2.superCluster()->eta();
       userFloat["ele1SCPhi"] = it.superCluster()->phi();
       userFloat["ele2SCPhi"] = it2.superCluster()->phi();
       userFloat["ele1SCEn"] = it.superCluster()->energy();
       userFloat["ele2SCEn"] = it2.superCluster()->energy();
-      
+
       userFloat["ele1HoverE"] = it.hcalOverEcal();
       userFloat["ele2HoverE"] = it2.hcalOverEcal();
       userFloat["ele1SigmaIEtaIEta"] = it.full5x5_sigmaIetaIeta();
@@ -474,13 +473,13 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userFloat["ele2DeltaEtaIn"] = it2.deltaEtaSuperClusterTrackAtVtx();
       userFloat["ele1DeltaPhiIn"] = it.deltaPhiSuperClusterTrackAtVtx();
       userFloat["ele2DeltaPhiIn"] = it2.deltaPhiSuperClusterTrackAtVtx();
-      
+
       userFloat["ele1FBrem"] = it.fbrem();
       userFloat["ele2FBrem"] = it2.fbrem();
-      
+
       userFloat["ele1EoverP"] = it.eSuperClusterOverP();
       userFloat["ele2EoverP"] = it2.eSuperClusterOverP();
-      
+
       reco::GsfElectron::PflowIsolationVariables pfIso1 = it.pfIsolationVariables();
       reco::GsfElectron::PflowIsolationVariables pfIso2 = it2.pfIsolationVariables();
       userFloat["ele1PFChIso"] = pfIso1.sumChargedHadronPt;
@@ -491,13 +490,12 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userFloat["ele2PFPhoIso"] = pfIso2.sumPhotonEt;
       userFloat["ele1PFPUIso"] = pfIso1.sumPUPt;
       userFloat["ele2PFPUIso"] = pfIso2.sumPUPt;
-      
-      // MVA-based ID and Isolation
+
       userFloat["ele1MVAIso"] = it.hasUserFloat("hiMVAIso") ? it.userFloat("hiMVAIso") : -99.f;
       userFloat["ele2MVAIso"] = it2.hasUserFloat("hiMVAIso") ? it2.userFloat("hiMVAIso") : -99.f;
       userFloat["ele1MVAId"] = it.hasUserFloat("hiMVAId") ? it.userFloat("hiMVAId") : -99.f;
       userFloat["ele2MVAId"] = it2.hasUserFloat("hiMVAId") ? it2.userFloat("hiMVAId") : -99.f;
-      
+
       userInt["ele1MVAIsoWP95"] = it.hasUserInt("hiMVAIsoWP95") ? it.userInt("hiMVAIsoWP95") : -1;
       userInt["ele2MVAIsoWP95"] = it2.hasUserInt("hiMVAIsoWP95") ? it2.userInt("hiMVAIsoWP95") : -1;
       userInt["ele1MVAIsoWP90"] = it.hasUserInt("hiMVAIsoWP90") ? it.userInt("hiMVAIsoWP90") : -1;
@@ -506,7 +504,7 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userInt["ele2MVAIsoWP85"] = it2.hasUserInt("hiMVAIsoWP85") ? it2.userInt("hiMVAIsoWP85") : -1;
       userInt["ele1MVAIsoWP80"] = it.hasUserInt("hiMVAIsoWP80") ? it.userInt("hiMVAIsoWP80") : -1;
       userInt["ele2MVAIsoWP80"] = it2.hasUserInt("hiMVAIsoWP80") ? it2.userInt("hiMVAIsoWP80") : -1;
-      
+
       userInt["ele1MVAIdWP95"] = it.hasUserInt("hiMVAIdWP95") ? it.userInt("hiMVAIdWP95") : -1;
       userInt["ele2MVAIdWP95"] = it2.hasUserInt("hiMVAIdWP95") ? it2.userInt("hiMVAIdWP95") : -1;
       userInt["ele1MVAIdWP90"] = it.hasUserInt("hiMVAIdWP90") ? it.userInt("hiMVAIdWP90") : -1;
@@ -515,7 +513,7 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userInt["ele2MVAIdWP85"] = it2.hasUserInt("hiMVAIdWP85") ? it2.userInt("hiMVAIdWP85") : -1;
       userInt["ele1MVAIdWP80"] = it.hasUserInt("hiMVAIdWP80") ? it.userInt("hiMVAIdWP80") : -1;
       userInt["ele2MVAIdWP80"] = it2.hasUserInt("hiMVAIdWP80") ? it2.userInt("hiMVAIdWP80") : -1;
-      
+
       userInt["ele1CutIdWP95"] = it.hasUserInt("hiCutIdWP95") ? it.userInt("hiCutIdWP95") : -1;
       userInt["ele2CutIdWP95"] = it2.hasUserInt("hiCutIdWP95") ? it2.userInt("hiCutIdWP95") : -1;
       userInt["ele1CutIdWP90"] = it.hasUserInt("hiCutIdWP90") ? it.userInt("hiCutIdWP90") : -1;
@@ -524,8 +522,7 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
       userInt["ele2CutIdWP80"] = it2.hasUserInt("hiCutIdWP80") ? it2.userInt("hiCutIdWP80") : -1;
       userInt["ele1CutIdWP70"] = it.hasUserInt("hiCutIdWP70") ? it.userInt("hiCutIdWP70") : -1;
       userInt["ele2CutIdWP70"] = it2.hasUserInt("hiCutIdWP70") ? it2.userInt("hiCutIdWP70") : -1;
-      
-      // Energy corrections
+
       userFloat["ele1RawPt"] = it.hasUserFloat("rawPt") ? it.userFloat("rawPt") : it.pt();
       userFloat["ele2RawPt"] = it2.hasUserFloat("rawPt") ? it2.userFloat("rawPt") : it2.pt();
       userFloat["ele1RawEcalEnergy"] = it.hasUserFloat("rawEcalEnergy") ? it.userFloat("rawEcalEnergy") : it.ecalEnergy();
@@ -582,173 +579,360 @@ void HiOnia2EEPAT::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
         }
       }
 
-      myCand.addUserData<uint64_t>("trigBits", candTrigBits);
-      myCand.addUserData<uint64_t>("ele1TrigBits", ele1TrigBits);
-      myCand.addUserData<uint64_t>("ele2TrigBits", ele2TrigBits);
+      if (doTriggerMatch_) {
+        myCand.addUserData<uint64_t>("trigBits", candTrigBits);
+        myCand.addUserData<uint64_t>("ele1TrigBits", ele1TrigBits);
+        myCand.addUserData<uint64_t>("ele2TrigBits", ele2TrigBits);
+      }
 
-      // ---- apply the dielectron cut ----
       if (!(dielectronSelection_(myCand) || (resolveAmbiguity_ && doTriElectrons_))) {
         if (DiElectronTrk_ || flipJpsiDirection_ > 0 || (!doTriElectrons_))
           continue;
-        else {
+        else
           goto TriElectronCand;
-        }
       }
 
-      // ---- fit vertex using Kalman vertex fitter ----
-      {
-        TransientTrack electron1TT((*theTTBuilder).build(it.gsfTrack()));
-        TransientTrack electron2TT((*theTTBuilder).build(it2.gsfTrack()));
-        t_tks.clear();
-        t_tks.push_back(electron1TT);
-        t_tks.push_back(electron2TT);
+      t_tks.clear();
+      t_tks.push_back(theTTBuilder->build(it.gsfTrack()));
+      t_tks.push_back(theTTBuilder->build(it2.gsfTrack()));
 
-      if (addCommonVertex_) {
-        myVertex = vtxFitter.vertex(t_tks);
+      VtxForInvMass = vtxFitter.vertex(t_tks);
+      MassWErr = massCalculator.invariantMass(VtxForInvMass, eleMasses);
+      userFloat["MassErr"] = MassWErr.error();
+
+      myVertex = vtxFitter.vertex(t_tks);
+
+      if (myVertex.isValid()) {
+        if (resolveAmbiguity_) {
+          float minDz = 999999.;
+
+          TwoTrackMinimumDistance ttmd;
+          bool status = ttmd.calculate(
+              GlobalTrajectoryParameters(
+                  GlobalPoint(myVertex.position().x(), myVertex.position().y(), myVertex.position().z()),
+                  GlobalVector(myCand.px(), myCand.py(), myCand.pz()),
+                  TrackCharge(0),
+                  &(*bField)),
+              GlobalTrajectoryParameters(GlobalPoint(bs.position().x(), bs.position().y(), bs.position().z()),
+                                         GlobalVector(bs.dxdz(), bs.dydz(), 1.),
+                                         TrackCharge(0),
+                                         &(*bField)));
+          float extrapZ = -9E20;
+          if (status)
+            extrapZ = ttmd.points().first.z();
+
+          for (VertexCollection::const_iterator itv = priVtxs->begin(), itvend = priVtxs->end(); itv != itvend; ++itv) {
+            if (itv->isFake() || itv->tracksSize() < 2 || fabs(itv->position().z()) > 25 || itv->position().Rho() > 2)
+              continue;
+            float deltaZ = fabs(extrapZ - itv->position().z());
+            if (deltaZ < minDz) {
+              minDz = deltaZ;
+              thePrimaryV = Vertex(*itv);
+            }
+          }
+        }
+
+        theOriginalPV = thePrimaryV;
+
+        if (!dielectronSelection_(myCand)) {
+          if (DiElectronTrk_ || (!doTriElectrons_) || flipJpsiDirection_ > 0)
+            continue;
+          else
+            goto TriElectronCand;
+        }
+
+        electronLess.clear();
+        electronLess.reserve(thePrimaryV.tracksSize());
+        if (addElectronlessPrimaryVertex_ && thePrimaryV.tracksSize() > 2) {
+          const reco::TrackRef ele1Ctf = it.closestCtfTrackRef();
+          const reco::TrackRef ele2Ctf = it2.closestCtfTrackRef();
+
+          if (thePrimaryV.hasRefittedTracks()) {
+            for (const auto& itRefittedTrack : thePrimaryV.refittedTracks()) {
+              const reco::TrackBaseRef original = thePrimaryV.originalTrack(itRefittedTrack);
+              if (ele1Ctf.isNonnull() && original.isNonnull() && original.key() == ele1Ctf.key())
+                continue;
+              if (ele2Ctf.isNonnull() && original.isNonnull() && original.key() == ele2Ctf.key())
+                continue;
+              if (original.isNonnull())
+                electronLess.push_back(*original);
+            }
+          } else {
+            for (std::vector<reco::TrackBaseRef>::const_iterator itPVtrack = thePrimaryV.tracks_begin();
+                 itPVtrack != thePrimaryV.tracks_end();
+                 ++itPVtrack) {
+              if (!itPVtrack->isNonnull())
+                continue;
+              if (ele1Ctf.isNonnull() && itPVtrack->key() == ele1Ctf.key())
+                continue;
+              if (ele2Ctf.isNonnull() && itPVtrack->key() == ele2Ctf.key())
+                continue;
+              electronLess.push_back(**itPVtrack);
+            }
+          }
+
+          if (electronLess.size() > 1 && electronLess.size() < thePrimaryV.tracksSize()) {
+            std::vector<reco::TransientTrack> t_tks_electronless;
+            t_tks_electronless.reserve(electronLess.size());
+            for (const auto& trk : electronLess) {
+              t_tks_electronless.push_back(theTTBuilder->build(trk));
+              t_tks_electronless.back().setBeamSpot(bs);
+            }
+            std::unique_ptr<AdaptiveVertexFitter> theFitter(new AdaptiveVertexFitter());
+            TransientVertex pvs = theFitter->vertex(t_tks_electronless, bs);
+            if (pvs.isValid()) {
+              thePrimaryV = Vertex(pvs);
+            } else {
+              std::cout << "TransientVertex re-fitted is not valid. Keeping the original PV." << std::endl;
+            }
+          }
+        }
+
+        if (!doTriElectrons_ && !DiElectronTrk_) {
+          double vertexWeight = -1., sumPTPV = -1.;
+          int countTksOfPV = -1;
+
+          EDConsumerBase::Labels thePVsLabel;
+          EDConsumerBase::labelsForToken(thePVsToken_, thePVsLabel);
+          if (thePVsLabel.module == (std::string)("offlinePrimaryVertices")) {
+            const reco::TrackRef ele1Ctf = it.closestCtfTrackRef();
+            const reco::TrackRef ele2Ctf = it2.closestCtfTrackRef();
+            try {
+              for (reco::Vertex::trackRef_iterator itVtx = theOriginalPV.tracks_begin();
+                   itVtx != theOriginalPV.tracks_end();
+                   ++itVtx) {
+                if (!itVtx->isNonnull())
+                  continue;
+                const reco::Track& track = **itVtx;
+                if (!track.quality(reco::TrackBase::highPurity))
+                  continue;
+                if (track.pt() < 0.5)
+                  continue;
+
+                TransientTrack tt = theTTBuilder->build(track);
+                pair<bool, Measurement1D> tkPVdist = IPTools::absoluteImpactParameter3D(tt, theOriginalPV);
+
+                if (!tkPVdist.first)
+                  continue;
+                if (tkPVdist.second.significance() > 3)
+                  continue;
+                if (track.ptError() / track.pt() > 0.1)
+                  continue;
+
+                if (ele1Ctf.isNonnull() && ele1Ctf.key() == itVtx->key())
+                  continue;
+                if (ele2Ctf.isNonnull() && ele2Ctf.key() == itVtx->key())
+                  continue;
+
+                vertexWeight += theOriginalPV.trackWeight(*itVtx);
+                if (theOriginalPV.trackWeight(*itVtx) > 0.5) {
+                  countTksOfPV++;
+                  sumPTPV += track.pt();
+                }
+              }
+            } catch (std::exception&) {
+              std::cout << " Counting tracks from PV, fails! " << std::endl;
+              return;
+            }
+          }
+          userInt["countTksOfPV"] = countTksOfPV;
+          userFloat["vertexWeight"] = static_cast<float>(vertexWeight);
+          userFloat["sumPTPV"] = static_cast<float>(sumPTPV);
+        }
+
         vChi2 = myVertex.totalChiSquared();
         vNDF = myVertex.degreesOfFreedom();
-        userFloat["vNChi2"] = (vNDF == 0 ? -1 : vChi2 / vNDF);
-        userFloat["vProb"] = TMath::Prob(vChi2, (int)rint(vNDF));
+        float vProb = TMath::Prob(vChi2, static_cast<int>(vNDF));
+
+        userFloat["vNChi2"] = (vNDF == 0 ? -1.f : (vChi2 / vNDF));
+        userFloat["vProb"] = vProb;
         userFloat["chi2"] = vChi2;
         userFloat["ndf"] = vNDF;
 
-        if (myVertex.isValid()) {
-          GlobalPoint vtxPos(myVertex.position());
-          GlobalError vtxError = myVertex.positionError();
-          
-          // Convert GlobalError to reco::Vertex::Error (3x3 SMatrix)
-          reco::Vertex::Error vtxCov;
-          vtxCov(0,0) = vtxError.cxx();
-          vtxCov(0,1) = vtxError.cyx(); vtxCov(1,0) = vtxCov(0,1);
-          vtxCov(0,2) = vtxError.czx(); vtxCov(2,0) = vtxCov(0,2);
-          vtxCov(1,1) = vtxError.cyy();
-          vtxCov(1,2) = vtxError.czy(); vtxCov(2,1) = vtxCov(1,2);
-          vtxCov(2,2) = vtxError.czz();
-          
-          userVertex["PCAVtx"] = Vertex(reco::Vertex::Point(vtxPos.x(), vtxPos.y(), vtxPos.z()), 
-                                       vtxCov, vChi2, vNDF, 2);
+        TVector3 vtx, vtx3D;
+        TVector3 pvtx, pvtx3D;
+        VertexDistanceXY vdistXY;
+        VertexDistance3D vdistXYZ;
 
-          // === DCA calculation ===
-          TrajectoryStateClosestToPoint ele1TS = electron1TT.impactPointTSCP();
-          TrajectoryStateClosestToPoint ele2TS = electron2TT.impactPointTSCP();
-          float dca = 1E20;
-          if (ele1TS.isValid() && ele2TS.isValid()) {
-            ClosestApproachInRPhi cApp;
-            cApp.calculate(ele1TS.theState(), ele2TS.theState());
-            if (cApp.status())
-              dca = cApp.distance();
-          }
-          userFloat["DCA"] = dca;
+        vtx.SetXYZ(myVertex.position().x(), myVertex.position().y(), 0);
+        TVector3 pperp(jpsi.px(), jpsi.py(), 0);
+        AlgebraicVector3 vpperp(pperp.x(), pperp.y(), 0.);
 
-          // === Lifetime (ctau) calculation ===
-          // Get primary vertex
-          reco::Vertex thePrimaryV = (priVtxs->empty()) ? 
-              reco::Vertex(theBeamSpot->position(), theBeamSpot->covariance3D()) : priVtxs->front();
+        vtx3D.SetXYZ(myVertex.position().x(), myVertex.position().y(), myVertex.position().z());
+        TVector3 pxyz(jpsi.px(), jpsi.py(), jpsi.pz());
+        AlgebraicVector3 vpxyz(pxyz.x(), pxyz.y(), pxyz.z());
 
-          // Vertex position
-          TVector3 vtx, vtx3D;
-          vtx.SetXYZ(vtxPos.x(), vtxPos.y(), 0);
-          vtx3D.SetXYZ(vtxPos.x(), vtxPos.y(), vtxPos.z());
+        TrajectoryStateClosestToPoint ele1TS = t_tks[0].impactPointTSCP();
+        TrajectoryStateClosestToPoint ele2TS = t_tks[1].impactPointTSCP();
+        float dca = 1E20;
+        if (ele1TS.isValid() && ele2TS.isValid()) {
+          ClosestApproachInRPhi cApp;
+          cApp.calculate(ele1TS.theState(), ele2TS.theState());
+          if (cApp.status())
+            dca = cApp.distance();
+        }
+        userFloat["DCA"] = dca;
 
-          // Momentum
-          TVector3 pperp(jpsi.px(), jpsi.py(), 0);
-          TVector3 pxyz(jpsi.px(), jpsi.py(), jpsi.pz());
-          AlgebraicVector3 vpperp(pperp.x(), pperp.y(), 0);
-          AlgebraicVector3 vpxyz(pxyz.x(), pxyz.y(), pxyz.z());
+        if (addElectronlessPrimaryVertex_) {
+          userVertex["electronlessPV"] = thePrimaryV;
+          userVertex["PVwithelectrons"] = theOriginalPV;
+        } else {
+          userVertex["PVwithelectrons"] = thePrimaryV;
+        }
 
-          // Distance tools
-          VertexDistanceXY vdistXY;
-          VertexDistance3D vdistXYZ;
+        pvtx.SetXYZ(thePrimaryV.position().x(), thePrimaryV.position().y(), 0);
+        TVector3 vdiff = vtx - pvtx;
+        double cosAlpha = vdiff.Dot(pperp) / (vdiff.Perp() * pperp.Perp());
+        Measurement1D distXY = vdistXY.distance(Vertex(myVertex), thePrimaryV);
+        double ctauPV = distXY.value() * cosAlpha * 3.096916 / pperp.Perp();
+        GlobalError v1e = (Vertex(myVertex)).error();
+        GlobalError v2e = thePrimaryV.error();
+        AlgebraicSymMatrix33 vXYe = v1e.matrix() + v2e.matrix();
+        double ctauErrPV = sqrt(ROOT::Math::Similarity(vpperp, vXYe)) * 3.096916 / (pperp.Perp2());
 
-          // J/psi mass for ctau calculation
-          const float jpsiMass = 3.096916;
+        userFloat["ppdlPV"] = ctauPV;
+        userFloat["ppdlErrPV"] = ctauErrPV;
+        userFloat["cosAlpha"] = cosAlpha;
 
-          // === Lifetime using PV ===
-          TVector3 pvtx, pvtx3D;
-          pvtx.SetXYZ(thePrimaryV.position().x(), thePrimaryV.position().y(), 0);
-          TVector3 vdiff = vtx - pvtx;
-          double cosAlpha = vdiff.Dot(pperp) / (vdiff.Perp() * pperp.Perp());
-          Measurement1D distXY = vdistXY.distance(Vertex(myVertex), thePrimaryV);
-          double ctauPV = distXY.value() * cosAlpha * jpsiMass / pperp.Perp();
-          GlobalError v1e = (Vertex(myVertex)).error();
-          GlobalError v2e = thePrimaryV.error();
-          AlgebraicSymMatrix33 vXYe = v1e.matrix() + v2e.matrix();
-          double ctauErrPV = sqrt(ROOT::Math::Similarity(vpperp, vXYe)) * jpsiMass / (pperp.Perp2());
+        pvtx3D.SetXYZ(thePrimaryV.position().x(), thePrimaryV.position().y(), thePrimaryV.position().z());
+        TVector3 vdiff3D = vtx3D - pvtx3D;
+        double cosAlpha3D = vdiff3D.Dot(pxyz) / (vdiff3D.Mag() * pxyz.Mag());
+        Measurement1D distXYZ = vdistXYZ.distance(Vertex(myVertex), thePrimaryV);
+        double ctauPV3D = distXYZ.value() * cosAlpha3D * 3.096916 / pxyz.Mag();
+        double ctauErrPV3D = sqrt(ROOT::Math::Similarity(vpxyz, vXYe)) * 3.096916 / (pxyz.Mag2());
 
-          userFloat["ppdlPV"] = ctauPV;
-          userFloat["ppdlErrPV"] = ctauErrPV;
-          userFloat["cosAlpha"] = cosAlpha;
+        userFloat["ppdlPV3D"] = ctauPV3D;
+        userFloat["ppdlErrPV3D"] = ctauErrPV3D;
+        userFloat["cosAlpha3D"] = cosAlpha3D;
 
-          // 3D lifetime using PV
-          pvtx3D.SetXYZ(thePrimaryV.position().x(), thePrimaryV.position().y(), thePrimaryV.position().z());
-          TVector3 vdiff3D = vtx3D - pvtx3D;
-          double cosAlpha3D = vdiff3D.Dot(pxyz) / (vdiff3D.Mag() * pxyz.Mag());
-          Measurement1D distXYZ = vdistXYZ.distance(Vertex(myVertex), thePrimaryV);
-          double ctauPV3D = distXYZ.value() * cosAlpha3D * jpsiMass / pxyz.Mag();
-          double ctauErrPV3D = sqrt(ROOT::Math::Similarity(vpxyz, vXYe)) * jpsiMass / (pxyz.Mag2());
+        if (addElectronlessPrimaryVertex_ && !doTriElectrons_ && !DiElectronTrk_) {
+          pvtx.SetXYZ(theOriginalPV.position().x(), theOriginalPV.position().y(), 0);
+          vdiff = vtx - pvtx;
+          double cosAlphaOrigPV = vdiff.Dot(pperp) / (vdiff.Perp() * pperp.Perp());
+          distXY = vdistXY.distance(Vertex(myVertex), theOriginalPV);
+          double ctauOrigPV = distXY.value() * cosAlphaOrigPV * 3.096916 / pperp.Perp();
+          GlobalError v1eOrigPV = (Vertex(myVertex)).error();
+          GlobalError v2eOrigPV = theOriginalPV.error();
+          AlgebraicSymMatrix33 vXYeOrigPV = v1eOrigPV.matrix() + v2eOrigPV.matrix();
+          double ctauErrOrigPV = sqrt(ROOT::Math::Similarity(vpperp, vXYeOrigPV)) * 3.096916 / (pperp.Perp2());
 
-          userFloat["ppdlPV3D"] = ctauPV3D;
-          userFloat["ppdlErrPV3D"] = ctauErrPV3D;
-          userFloat["cosAlpha3D"] = cosAlpha3D;
+          userFloat["ppdlOrigPV"] = ctauOrigPV;
+          userFloat["ppdlErrOrigPV"] = ctauErrOrigPV;
 
-          // === Lifetime using BeamSpot ===
-          reco::Vertex theBeamSpotV(theBeamSpot->position(), theBeamSpot->covariance3D());
+          pvtx3D.SetXYZ(theOriginalPV.position().x(), theOriginalPV.position().y(), theOriginalPV.position().z());
+          vdiff3D = vtx3D - pvtx3D;
+          double cosAlphaOrigPV3D = vdiff3D.Dot(pxyz) / (vdiff3D.Mag() * pxyz.Mag());
+          distXYZ = vdistXYZ.distance(Vertex(myVertex), theOriginalPV);
+          double ctauOrigPV3D = distXYZ.value() * cosAlphaOrigPV3D * 3.096916 / pxyz.Mag();
+          double ctauErrOrigPV3D = sqrt(ROOT::Math::Similarity(vpxyz, vXYeOrigPV)) * 3.096916 / (pxyz.Mag2());
+
+          userFloat["ppdlOrigPV3D"] = ctauOrigPV3D;
+          userFloat["ppdlErrOrigPV3D"] = ctauErrOrigPV3D;
+        } else {
+          userFloat["ppdlOrigPV"] = ctauPV;
+          userFloat["ppdlErrOrigPV"] = ctauErrPV;
+          userFloat["ppdlOrigPV3D"] = ctauPV3D;
+          userFloat["ppdlErrOrigPV3D"] = ctauErrPV3D;
+        }
+
+        if (!doTriElectrons_ && !DiElectronTrk_) {
           pvtx.SetXYZ(theBeamSpotV.position().x(), theBeamSpotV.position().y(), 0);
           vdiff = vtx - pvtx;
-          double cosAlphaBS = vdiff.Dot(pperp) / (vdiff.Perp() * pperp.Perp());
+          cosAlpha = vdiff.Dot(pperp) / (vdiff.Perp() * pperp.Perp());
           distXY = vdistXY.distance(Vertex(myVertex), theBeamSpotV);
-          double ctauBS = distXY.value() * cosAlphaBS * jpsiMass / pperp.Perp();
+          double ctauBS = distXY.value() * cosAlpha * 3.096916 / pperp.Perp();
+          GlobalError v1eB = (Vertex(myVertex)).error();
           GlobalError v2eB = theBeamSpotV.error();
-          AlgebraicSymMatrix33 vXYeB = v1e.matrix() + v2eB.matrix();
-          double ctauErrBS = sqrt(ROOT::Math::Similarity(vpperp, vXYeB)) * jpsiMass / (pperp.Perp2());
+          AlgebraicSymMatrix33 vXYeB = v1eB.matrix() + v2eB.matrix();
+          double ctauErrBS = sqrt(ROOT::Math::Similarity(vpperp, vXYeB)) * 3.096916 / (pperp.Perp2());
 
           userFloat["ppdlBS"] = ctauBS;
           userFloat["ppdlErrBS"] = ctauErrBS;
-
-          // 3D lifetime using BeamSpot
           pvtx3D.SetXYZ(theBeamSpotV.position().x(), theBeamSpotV.position().y(), theBeamSpotV.position().z());
           vdiff3D = vtx3D - pvtx3D;
-          double cosAlphaBS3D = vdiff3D.Dot(pxyz) / (vdiff3D.Mag() * pxyz.Mag());
+          cosAlpha3D = vdiff3D.Dot(pxyz) / (vdiff3D.Mag() * pxyz.Mag());
           distXYZ = vdistXYZ.distance(Vertex(myVertex), theBeamSpotV);
-          double ctauBS3D = distXYZ.value() * cosAlphaBS3D * jpsiMass / pxyz.Mag();
-          double ctauErrBS3D = sqrt(ROOT::Math::Similarity(vpxyz, vXYeB)) * jpsiMass / (pxyz.Mag2());
+          double ctauBS3D = distXYZ.value() * cosAlpha3D * 3.096916 / pxyz.Mag();
+          double ctauErrBS3D = sqrt(ROOT::Math::Similarity(vpxyz, vXYeB)) * 3.096916 / (pxyz.Mag2());
 
           userFloat["ppdlBS3D"] = ctauBS3D;
           userFloat["ppdlErrBS3D"] = ctauErrBS3D;
+        }
 
+        userVertex["PCAVtx"] = Vertex(myVertex);
+        if (addCommonVertex_) {
+          userVertex["commonVertex"] = Vertex(myVertex);
+        }
+      } else {
+        userFloat["vNChi2"] = -1;
+        userFloat["vProb"] = -1;
+        userFloat["chi2"] = -1;
+        userFloat["ndf"] = -1;
+        userFloat["vertexWeight"] = -100;
+        userFloat["sumPTPV"] = -100;
+        userFloat["MassErr"] = -100;
+        userFloat["DCA"] = -10;
+        userFloat["ppdlPV"] = -100;
+        userFloat["ppdlErrPV"] = -100;
+        userFloat["cosAlpha"] = -10;
+        userFloat["ppdlBS"] = -100;
+        userFloat["ppdlErrBS"] = -100;
+        userFloat["ppdlOrigPV"] = -100;
+        userFloat["ppdlErrOrigPV"] = -100;
+        userFloat["ppdlPV3D"] = -100;
+        userFloat["ppdlErrPV3D"] = -100;
+        userFloat["cosAlpha3D"] = -10;
+        userFloat["ppdlBS3D"] = -100;
+        userFloat["ppdlErrBS3D"] = -100;
+        userFloat["ppdlOrigPV3D"] = -100;
+        userFloat["ppdlErrOrigPV3D"] = -100;
+
+        userInt["countTksOfPV"] = -1;
+
+        userVertex["PCAVtx"] = Vertex();
+        if (addCommonVertex_) {
+          userVertex["commonVertex"] = Vertex();
+        }
+        if (addElectronlessPrimaryVertex_) {
+          userVertex["electronlessPV"] = Vertex();
+          userVertex["PVwithelectrons"] = Vertex();
         } else {
-          // Invalid vertex - set default values
-          userFloat["DCA"] = -10;
-          userFloat["ppdlPV"] = -100;
-          userFloat["ppdlErrPV"] = -100;
-          userFloat["cosAlpha"] = -10;
-          userFloat["ppdlPV3D"] = -100;
-          userFloat["ppdlErrPV3D"] = -100;
-          userFloat["cosAlpha3D"] = -10;
-          userFloat["ppdlBS"] = -100;
-          userFloat["ppdlErrBS"] = -100;
-          userFloat["ppdlBS3D"] = -100;
-          userFloat["ppdlErrBS3D"] = -100;
+          userVertex["PVwithelectrons"] = Vertex();
         }
       }
-      } // End vertex fitting block
 
-      // store variables in the user area of the candidate
-      for (auto const &key : userFloat) myCand.addUserFloat(key.first, key.second);
-      for (auto const &key : userInt) myCand.addUserInt(key.first, key.second);
-      for (auto const &key : userVertex) myCand.addUserData(key.first, key.second);
-      for (auto const &key : userTrack) myCand.addUserData(key.first, key.second);
+      if (DiElectronTrk_) {
+        userInt["Ntrk"] = Ntrk;
+      }
+
+      for (const auto& kv : userFloat) {
+        myCand.addUserFloat(kv.first, kv.second);
+      }
+      for (const auto& kv : userInt) {
+        myCand.addUserInt(kv.first, kv.second);
+      }
+      for (const auto& kv : userVertex) {
+        myCand.addUserData(kv.first, kv.second);
+      }
+      for (const auto& kv : userTrack) {
+        myCand.addUserData(kv.first, kv.second);
+      }
+
+      if (!LateDiElectronSel_(myCand)) {
+        if (DiElectronTrk_ || flipJpsiDirection_ > 0 || (!doTriElectrons_))
+          continue;
+        else
+          goto TriElectronCand;
+      }
 
       oniaOutput->push_back(myCand);
 
     TriElectronCand:;
-      // Do nothing for now - trielectron reconstruction can be added later
     }
   }
 
 skipElectronLoop:;
 
-  // sort candidates by vProb, then by pt
   if (resolveAmbiguity_) {
     std::sort(oniaOutput->begin(), oniaOutput->end(), vPComparator_);
   } else {
@@ -759,7 +943,6 @@ skipElectronLoop:;
   iEvent.put(std::move(trielectronOutput), "trielectron");
   iEvent.put(std::move(dieletrkOutput), "dieletrk");
 }
-
 // ------------ method called once each job just before starting event loop  ------------
 void HiOnia2EEPAT::beginJob() {}
 

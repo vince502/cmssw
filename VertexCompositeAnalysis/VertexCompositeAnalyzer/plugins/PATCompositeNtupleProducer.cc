@@ -5,7 +5,7 @@
 //
 // Description: Event-based ntuple producer for pat::CompositeCandidate collections
 //              One entry per event, vectors for candidate quantities
-//              Supports: D0, D04P, DStar, DStar5P, BPlus, BZero, Bc
+//              Supports: D0, D04P, DStar, DStar5P, BPlus, BZero, Bc, BcSemiLep
 //              Uses flat vectors (pTD1, pTD2, ...) instead of nested vectors for efficiency
 //
 // Author: Soohwan Lee
@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <algorithm>
 #include <iostream>
 #include <cmath>
 
@@ -50,6 +51,88 @@ constexpr int MAXDAU = 5;
 constexpr int MAXGDAU = 4;
 constexpr float DUMMY = -999.f;
 
+namespace {
+bool isLeptonPdgId(int pdgId) {
+  const int absId = std::abs(pdgId);
+  return (absId == 11 || absId == 13);
+}
+
+bool isNeutrinoPdgId(int pdgId) {
+  const int absId = std::abs(pdgId);
+  return (absId == 12 || absId == 14 || absId == 16);
+}
+
+bool isJpsiLikePdgId(int pdgId) {
+  const int absId = std::abs(pdgId);
+  return (absId == 443 || absId == 100443);
+}
+
+int leptonChargeFromPdgId(int pdgId) {
+  if (!isLeptonPdgId(pdgId)) {
+    return 0;
+  }
+  return (pdgId > 0) ? -1 : 1;
+}
+
+bool isDescendantOf(const reco::Candidate* child, const reco::Candidate* ancestor, int depth = 0) {
+  if (!child || !ancestor || depth > 100) {
+    return false;
+  }
+  if (child == ancestor) {
+    return true;
+  }
+  for (size_t i = 0; i < child->numberOfMothers(); ++i) {
+    const reco::Candidate* mom = child->mother(i);
+    if (!mom) {
+      continue;
+    }
+    if (mom == ancestor || isDescendantOf(mom, ancestor, depth + 1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void collectFinalStateParticles(const reco::Candidate* start,
+                                std::vector<const reco::GenParticle*>& leptons,
+                                std::vector<const reco::GenParticle*>& neutrinos) {
+  if (!start) {
+    return;
+  }
+  const auto* gen = dynamic_cast<const reco::GenParticle*>(start);
+  if (!gen) {
+    return;
+  }
+
+  const int absId = std::abs(gen->pdgId());
+  if (isLeptonPdgId(absId) || isNeutrinoPdgId(absId)) {
+    bool hasSameDau = false;
+    for (size_t i = 0; i < gen->numberOfDaughters(); ++i) {
+      const auto* dau = dynamic_cast<const reco::GenParticle*>(gen->daughter(i));
+      if (!dau) {
+        continue;
+      }
+      if (std::abs(dau->pdgId()) == absId) {
+        hasSameDau = true;
+        break;
+      }
+    }
+    if (gen->status() == 1 || !hasSameDau) {
+      if (isLeptonPdgId(absId)) {
+        leptons.push_back(gen);
+      } else {
+        neutrinos.push_back(gen);
+      }
+      return;
+    }
+  }
+
+  for (size_t i = 0; i < gen->numberOfDaughters(); ++i) {
+    collectFinalStateParticles(gen->daughter(i), leptons, neutrinos);
+  }
+}
+}  // namespace
+
 // Helper structure for gen decay tree (defined before class)
 struct GenDecay {
   const reco::GenParticle* main;           // D0, D*, B, etc.
@@ -66,6 +149,7 @@ enum class CandidateType {
   BPlus,     // J/psi + K
   BZero,     // J/psi + K* (K+pi)
   Bc,        // J/psi + pi
+  BcSemiLep, // Bc -> J/psi(->ll) + l + nu
   X3872,     // J/psi + pi+ pi-
   ChiC,      // J/psi + gamma(e+e-)
   Unknown
@@ -184,6 +268,19 @@ private:
   std::array<std::vector<short>, MAXDAU> dau_nTrackerLayer_;
   std::array<std::vector<short>, MAXDAU> dau_nPixelHit_;
 
+  // Bc semileptonic detailed lepton info
+  std::array<std::vector<short>, MAXDAU> dau_lepPdgId_;
+  std::array<std::vector<bool>, MAXDAU> dau_isElectron_;
+  std::array<std::vector<float>, MAXDAU> dau_relIso03_;
+  std::array<std::vector<float>, MAXDAU> dau_relIso04_;
+  std::array<std::vector<bool>, MAXDAU> dau_passConvVeto_;
+  std::array<std::vector<short>, MAXDAU> dau_missingHits_;
+  std::array<std::vector<float>, MAXDAU> dau_sigmaIetaIeta_;
+  std::array<std::vector<float>, MAXDAU> dau_hOverE_;
+  std::array<std::vector<float>, MAXDAU> dau_dEtaIn_;
+  std::array<std::vector<float>, MAXDAU> dau_dPhiIn_;
+  std::array<std::vector<float>, MAXDAU> dau_ooEmooP_;
+
   // Grand-daughter info - FLAT vectors (for two-layer decays like DStar)
   std::array<std::vector<float>, MAXGDAU> gdau_pt_;
   std::array<std::vector<float>, MAXGDAU> gdau_eta_;
@@ -215,6 +312,36 @@ private:
 
   // J/psi index for B mesons (reference to hionia tree)
   std::vector<int> jpsiIdx_;
+
+  // Bc semileptonic custom user branches from producer
+  std::vector<int> bc_channelId_;
+  std::vector<int> bc_isJpsiMuMu_;
+  std::vector<int> bc_leptonFlavor_;
+  std::vector<int> bc_isCrossFlavor_;
+  std::vector<int> bc_hasNeutrino_;
+  std::vector<int> bc_gen_isMatched3L_;
+  std::vector<int> bc_gen_nMatchedLep_;
+  std::vector<int> bc_gen_matchedBcIdx_;
+  std::vector<int> bc_gen_channelId_;
+  std::vector<int> bc_gen_bcPdgId_;
+  std::vector<int> bc_gen_jpsiPdgId_;
+  std::vector<int> bc_Reco3L_isGenMatched_;
+  std::vector<int> bc_Reco3L_nMatched_;
+  std::vector<int> bc_Reco3L_whichGen_;
+  std::vector<float> bc_gen_match_dR_jpsiLep1_;
+  std::vector<float> bc_gen_match_dR_jpsiLep2_;
+  std::vector<float> bc_gen_match_dR_wLep_;
+  std::vector<float> bc_gen_jpsiLep1Pt_;
+  std::vector<float> bc_gen_jpsiLep2Pt_;
+  std::vector<float> bc_gen_wLepPt_;
+  std::vector<float> bc_jpsiMass_;
+  std::vector<float> bc_jpsiVProb_;
+  std::vector<float> bc_visibleMass_;
+  std::vector<float> bc_visiblePt_;
+  std::vector<float> bc_visibleY_;
+  std::vector<float> bc_wLepPt_;
+  std::vector<float> bc_wLepEta_;
+  std::vector<int> bc_wLepIdx_;
 
   // ============ Generator-level info (MC only) ============
   // Gen decay tree structure - stores ALL gen particles in the decay chain
@@ -300,6 +427,9 @@ PATCompositeNtupleProducer::PATCompositeNtupleProducer(const edm::ParameterSet& 
     case CandidateType::Bc:
       nDau_ = 2; twoLayerDecay_ = true; nGDau_ = 2; doMuon_ = true;
       break;
+    case CandidateType::BcSemiLep:
+      nDau_ = 3; twoLayerDecay_ = true; nGDau_ = 2; doMuon_ = true; doElectron_ = true;
+      break;
     case CandidateType::X3872:
       // J/psi + pi+ pi-: daughters are onia(composite), piPlus, piMinus
       // Store oniaIdx to reference hionia tree, skip muon branches
@@ -342,6 +472,7 @@ CandidateType PATCompositeNtupleProducer::getCandidateType(const std::string& na
   if(name == "BPlus") return CandidateType::BPlus;
   if(name == "BZero") return CandidateType::BZero;
   if(name == "Bc") return CandidateType::Bc;
+  if(name == "BcSemiLep") return CandidateType::BcSemiLep;
   if(name == "X3872") return CandidateType::X3872;
   if(name == "ChiC") return CandidateType::ChiC;
   return CandidateType::Unknown;
@@ -377,6 +508,37 @@ void PATCompositeNtupleProducer::initTree() {
   tree_->Branch("y", &cand_y_);
   tree_->Branch("pdgId", &cand_pdgId_);
   tree_->Branch("mva", &cand_mva_);
+
+  if(candidateType_ == CandidateType::BcSemiLep) {
+    tree_->Branch("bc_channelId", &bc_channelId_);
+    tree_->Branch("bc_isJpsiMuMu", &bc_isJpsiMuMu_);
+    tree_->Branch("bc_leptonFlavor", &bc_leptonFlavor_);
+    tree_->Branch("bc_isCrossFlavor", &bc_isCrossFlavor_);
+    tree_->Branch("bc_hasNeutrino", &bc_hasNeutrino_);
+    tree_->Branch("bc_gen_isMatched3L", &bc_gen_isMatched3L_);
+    tree_->Branch("bc_gen_nMatchedLep", &bc_gen_nMatchedLep_);
+    tree_->Branch("bc_gen_matchedBcIdx", &bc_gen_matchedBcIdx_);
+    tree_->Branch("bc_gen_channelId", &bc_gen_channelId_);
+    tree_->Branch("bc_gen_bcPdgId", &bc_gen_bcPdgId_);
+    tree_->Branch("bc_gen_jpsiPdgId", &bc_gen_jpsiPdgId_);
+    tree_->Branch("bc_Reco3L_isGenMatched", &bc_Reco3L_isGenMatched_);
+    tree_->Branch("bc_Reco3L_nMatched", &bc_Reco3L_nMatched_);
+    tree_->Branch("bc_Reco3L_whichGen", &bc_Reco3L_whichGen_);
+    tree_->Branch("bc_gen_match_dR_jpsiLep1", &bc_gen_match_dR_jpsiLep1_);
+    tree_->Branch("bc_gen_match_dR_jpsiLep2", &bc_gen_match_dR_jpsiLep2_);
+    tree_->Branch("bc_gen_match_dR_wLep", &bc_gen_match_dR_wLep_);
+    tree_->Branch("bc_gen_jpsiLep1Pt", &bc_gen_jpsiLep1Pt_);
+    tree_->Branch("bc_gen_jpsiLep2Pt", &bc_gen_jpsiLep2Pt_);
+    tree_->Branch("bc_gen_wLepPt", &bc_gen_wLepPt_);
+    tree_->Branch("bc_jpsiMass", &bc_jpsiMass_);
+    tree_->Branch("bc_jpsiVProb", &bc_jpsiVProb_);
+    tree_->Branch("bc_visibleMass", &bc_visibleMass_);
+    tree_->Branch("bc_visiblePt", &bc_visiblePt_);
+    tree_->Branch("bc_visibleY", &bc_visibleY_);
+    tree_->Branch("bc_wLepPt", &bc_wLepPt_);
+    tree_->Branch("bc_wLepEta", &bc_wLepEta_);
+    tree_->Branch("bc_wLepIdx", &bc_wLepIdx_);
+  }
 
   // Vertex info (vectors)
   tree_->Branch("VtxChi2", &vtxChi2_);
@@ -426,6 +588,20 @@ void PATCompositeNtupleProducer::initTree() {
       tree_->Branch(Form("nTrackerLayer%s", dauNames[i]), &dau_nTrackerLayer_[i]);
       tree_->Branch(Form("nPixelHit%s", dauNames[i]), &dau_nPixelHit_[i]);
     }
+
+    if(candidateType_ == CandidateType::BcSemiLep) {
+      tree_->Branch(Form("lepPdgId%s", dauNames[i]), &dau_lepPdgId_[i]);
+      tree_->Branch(Form("isElectron%s", dauNames[i]), &dau_isElectron_[i]);
+      tree_->Branch(Form("relIso03%s", dauNames[i]), &dau_relIso03_[i]);
+      tree_->Branch(Form("relIso04%s", dauNames[i]), &dau_relIso04_[i]);
+      tree_->Branch(Form("passConvVeto%s", dauNames[i]), &dau_passConvVeto_[i]);
+      tree_->Branch(Form("missingHits%s", dauNames[i]), &dau_missingHits_[i]);
+      tree_->Branch(Form("sigmaIetaIeta%s", dauNames[i]), &dau_sigmaIetaIeta_[i]);
+      tree_->Branch(Form("hOverE%s", dauNames[i]), &dau_hOverE_[i]);
+      tree_->Branch(Form("dEtaIn%s", dauNames[i]), &dau_dEtaIn_[i]);
+      tree_->Branch(Form("dPhiIn%s", dauNames[i]), &dau_dPhiIn_[i]);
+      tree_->Branch(Form("ooEmooP%s", dauNames[i]), &dau_ooEmooP_[i]);
+    }
   }
 
   // For X3872/ChiC: store oniaIdx to reference hionia tree (no two-layer decay branches needed)
@@ -446,7 +622,8 @@ void PATCompositeNtupleProducer::initTree() {
     tree_->Branch("dauCand_decayLengthSig3D", &dauCand_decayLengthSig3D_);
 
     // For B mesons: store jpsiIdx to reference hionia tree
-    bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero || candidateType_ == CandidateType::Bc);
+    bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero ||
+                     candidateType_ == CandidateType::Bc || candidateType_ == CandidateType::BcSemiLep);
     if(isBMeson) {
       tree_->Branch("jpsiIdx", &jpsiIdx_);
     }
@@ -572,6 +749,17 @@ void PATCompositeNtupleProducer::clearVectors() {
     dau_nMatchedStation_[i].clear();
     dau_nTrackerLayer_[i].clear();
     dau_nPixelHit_[i].clear();
+    dau_lepPdgId_[i].clear();
+    dau_isElectron_[i].clear();
+    dau_relIso03_[i].clear();
+    dau_relIso04_[i].clear();
+    dau_passConvVeto_[i].clear();
+    dau_missingHits_[i].clear();
+    dau_sigmaIetaIeta_[i].clear();
+    dau_hOverE_[i].clear();
+    dau_dEtaIn_[i].clear();
+    dau_dPhiIn_[i].clear();
+    dau_ooEmooP_[i].clear();
   }
 
   // Grand-daughter info
@@ -607,6 +795,36 @@ void PATCompositeNtupleProducer::clearVectors() {
 
   // J/psi index for B mesons
   jpsiIdx_.clear();
+
+  // Bc semileptonic custom branches
+  bc_channelId_.clear();
+  bc_isJpsiMuMu_.clear();
+  bc_leptonFlavor_.clear();
+  bc_isCrossFlavor_.clear();
+  bc_hasNeutrino_.clear();
+  bc_gen_isMatched3L_.clear();
+  bc_gen_nMatchedLep_.clear();
+  bc_gen_matchedBcIdx_.clear();
+  bc_gen_channelId_.clear();
+  bc_gen_bcPdgId_.clear();
+  bc_gen_jpsiPdgId_.clear();
+  bc_Reco3L_isGenMatched_.clear();
+  bc_Reco3L_nMatched_.clear();
+  bc_Reco3L_whichGen_.clear();
+  bc_gen_match_dR_jpsiLep1_.clear();
+  bc_gen_match_dR_jpsiLep2_.clear();
+  bc_gen_match_dR_wLep_.clear();
+  bc_gen_jpsiLep1Pt_.clear();
+  bc_gen_jpsiLep2Pt_.clear();
+  bc_gen_wLepPt_.clear();
+  bc_jpsiMass_.clear();
+  bc_jpsiVProb_.clear();
+  bc_visibleMass_.clear();
+  bc_visiblePt_.clear();
+  bc_visibleY_.clear();
+  bc_wLepPt_.clear();
+  bc_wLepEta_.clear();
+  bc_wLepIdx_.clear();
 
   // Gen matching info (MC only)
   if(genealogyInfo_) {
@@ -768,6 +986,47 @@ void PATCompositeNtupleProducer::fillCandidate(const pat::CompositeCandidate& ca
   cand_pdgId_.push_back(cand.pdgId());
   cand_mva_.push_back(cand.hasUserFloat("mva") ? cand.userFloat("mva") : DUMMY);
 
+  if(candidateType_ == CandidateType::BcSemiLep) {
+    auto getUserIntOr = [&](const char* key, int def) -> int {
+      return cand.hasUserInt(key) ? cand.userInt(key) : def;
+    };
+    auto getUserFloatOr = [&](const char* key, float def) -> float {
+      return cand.hasUserFloat(key) ? cand.userFloat(key) : def;
+    };
+
+    bc_channelId_.push_back(getUserIntOr("channelId", -1));
+    bc_isJpsiMuMu_.push_back(getUserIntOr("isJpsiMuMu", -1));
+    bc_leptonFlavor_.push_back(getUserIntOr("leptonFlavor", 0));
+    bc_isCrossFlavor_.push_back(getUserIntOr("isCrossFlavor", -1));
+    bc_hasNeutrino_.push_back(getUserIntOr("hasNeutrino", -1));
+
+    bc_gen_isMatched3L_.push_back(getUserIntOr("gen_isMatched3L", -1));
+    bc_gen_nMatchedLep_.push_back(getUserIntOr("gen_nMatchedLep", -1));
+    bc_gen_matchedBcIdx_.push_back(getUserIntOr("gen_matchedBcIdx", -1));
+    bc_gen_channelId_.push_back(getUserIntOr("gen_channelId", -1));
+    bc_gen_bcPdgId_.push_back(getUserIntOr("gen_bcPdgId", 0));
+    bc_gen_jpsiPdgId_.push_back(getUserIntOr("gen_jpsiPdgId", 0));
+
+    bc_Reco3L_isGenMatched_.push_back(getUserIntOr("Reco_3lep_isGenMatched", -1));
+    bc_Reco3L_nMatched_.push_back(getUserIntOr("Reco_3lep_nMatched", -1));
+    bc_Reco3L_whichGen_.push_back(getUserIntOr("Reco_3lep_whichGen", -1));
+
+    bc_gen_match_dR_jpsiLep1_.push_back(getUserFloatOr("gen_match_dR_jpsiLep1", DUMMY));
+    bc_gen_match_dR_jpsiLep2_.push_back(getUserFloatOr("gen_match_dR_jpsiLep2", DUMMY));
+    bc_gen_match_dR_wLep_.push_back(getUserFloatOr("gen_match_dR_wLep", DUMMY));
+    bc_gen_jpsiLep1Pt_.push_back(getUserFloatOr("gen_jpsiLep1Pt", DUMMY));
+    bc_gen_jpsiLep2Pt_.push_back(getUserFloatOr("gen_jpsiLep2Pt", DUMMY));
+    bc_gen_wLepPt_.push_back(getUserFloatOr("gen_wLepPt", DUMMY));
+    bc_jpsiMass_.push_back(getUserFloatOr("jpsiMass", DUMMY));
+    bc_jpsiVProb_.push_back(getUserFloatOr("jpsiVProb", DUMMY));
+    bc_visibleMass_.push_back(getUserFloatOr("visibleMass", DUMMY));
+    bc_visiblePt_.push_back(getUserFloatOr("visiblePt", DUMMY));
+    bc_visibleY_.push_back(getUserFloatOr("visibleY", DUMMY));
+    bc_wLepPt_.push_back(getUserFloatOr("lepPt", DUMMY));
+    bc_wLepEta_.push_back(getUserFloatOr("lepEta", DUMMY));
+    bc_wLepIdx_.push_back(getUserIntOr("wLepIdx", -1));
+  }
+
   // Vertex info
   float chi2 = cand.hasUserFloat("VtxChi2") ? cand.userFloat("VtxChi2") : DUMMY;
   float ndof = cand.hasUserFloat("VtxNdof") ? cand.userFloat("VtxNdof") : DUMMY;
@@ -799,116 +1058,199 @@ void PATCompositeNtupleProducer::fillCandidate(const pat::CompositeCandidate& ca
 
   // Fill daughter info for each daughter index
   const ushort nDaughters = std::min(static_cast<ushort>(cand.numberOfDaughters()), nDau_);
-  
+  const reco::Candidate* semiJpsi = nullptr;
+  const reco::Candidate* semiWLep = nullptr;
+  const reco::Candidate* semiJpsiLep1 = nullptr;
+  const reco::Candidate* semiJpsiLep2 = nullptr;
+  if(candidateType_ == CandidateType::BcSemiLep) {
+    // Gen-only visible candidates do not carry named daughter roles.
+    if(cand.numberOfDaughters() > 0) semiJpsi = cand.daughter(0);
+    if(cand.numberOfDaughters() > 1) semiWLep = cand.daughter(1);
+    if(semiJpsi && semiJpsi->numberOfDaughters() > 0) semiJpsiLep1 = semiJpsi->daughter(0);
+    if(semiJpsi && semiJpsi->numberOfDaughters() > 1) semiJpsiLep2 = semiJpsi->daughter(1);
+  }
+
   for(int iDau = 0; iDau < nDau_; ++iDau) {
-    if(iDau < nDaughters) {
-      const auto* dau = cand.daughter(iDau);
-      if(dau) {
-        dau_pt_[iDau].push_back(dau->pt());
-        dau_eta_[iDau].push_back(dau->eta());
-        dau_phi_[iDau].push_back(dau->phi());
-        dau_mass_[iDau].push_back(dau->mass());
-        dau_charge_[iDau].push_back(dau->charge());
+    const reco::Candidate* dau = nullptr;
+    if(candidateType_ == CandidateType::BcSemiLep) {
+      if(iDau == 0) dau = semiJpsiLep1;
+      else if(iDau == 1) dau = semiJpsiLep2;
+      else if(iDau == 2) dau = semiWLep;
+    } else if(iDau < nDaughters) {
+      dau = cand.daughter(iDau);
+    }
 
-        // Assign dEdx
-        float dedx = DUMMY;
-        if(candidateType_ == CandidateType::DStar || candidateType_ == CandidateType::DStar5P) {
-          dedx = (iDau == 1) ? slowPionDeDx : DUMMY;
-        } else if(candidateType_ == CandidateType::X3872) {
-          // X3872: D0=onia(composite), D1=piPlus, D2=piMinus
-          if(iDau == 1) dedx = posDauDeDx;       // piPlus
-          else if(iDau == 2) dedx = negDauDeDx;  // piMinus
-          // iDau==0 (onia) has no dEdx
-        } else if(candidateType_ == CandidateType::ChiC) {
-          // ChiC: D0=onia(composite), D1=photon(composite with e+e-)
-          // dEdx for electrons stored separately - leave as DUMMY for composite daughter
-        } else {
-          dedx = (iDau == 0) ? posDauDeDx : negDauDeDx;
-        }
-        dau_dedx_[iDau].push_back(dedx);
+    if(dau) {
+      dau_pt_[iDau].push_back(dau->pt());
+      dau_eta_[iDau].push_back(dau->eta());
+      dau_phi_[iDau].push_back(dau->phi());
+      dau_mass_[iDau].push_back(dau->mass());
+      dau_charge_[iDau].push_back(dau->charge());
 
-        // Track info
-        const reco::Track* trk = dau->bestTrack();
-        if(trk) {
-          const double dz = trk->dz(pvPos);
-          const double dxy = trk->dxy(pvPos);
-          const double dzErr = std::sqrt(trk->dzError()*trk->dzError() + pv.zError()*pv.zError());
-          const double dxyErr = std::sqrt(trk->d0Error()*trk->d0Error() + pv.xError()*pv.yError());
-          
-          dau_dzSig_[iDau].push_back(dz/dzErr);
-          dau_dxySig_[iDau].push_back(dxy/dxyErr);
-          dau_nhit_[iDau].push_back(trk->numberOfValidHits());
-          dau_ptErr_[iDau].push_back(trk->ptError());
-          dau_trkChi2_[iDau].push_back(trk->normalizedChi2());
-          dau_highPurity_[iDau].push_back(trk->quality(reco::TrackBase::highPurity));
-        } else {
-          dau_dzSig_[iDau].push_back(DUMMY);
-          dau_dxySig_[iDau].push_back(DUMMY);
-          dau_nhit_[iDau].push_back(-1);
-          dau_ptErr_[iDau].push_back(DUMMY);
-          dau_trkChi2_[iDau].push_back(DUMMY);
-          dau_highPurity_[iDau].push_back(false);
-        }
-
-        // Muon info
-        if(doMuon_) {
-          bool isGlobal = false, isPF = false, isSoft = false, isTight = false, isHybrid = false;
-          short nMuonHit = -1, nMatchedStation = -1, nTrackerLayer = -1, nPixelHit = -1;
-          
-          if(dau->isMuon()) {
-            const auto* muon = dynamic_cast<const pat::Muon*>(dau);
-            if(muon) {
-              isGlobal = muon->isGlobalMuon();
-              isPF = muon->isPFMuon();
-              isSoft = muon->isSoftMuon(pv);
-              isTight = muon->isTightMuon(pv);
-              
-              if(muon->globalTrack().isNonnull()) {
-                nMuonHit = muon->globalTrack()->hitPattern().numberOfValidMuonHits();
-              }
-              nMatchedStation = muon->numberOfMatchedStations();
-              if(muon->innerTrack().isNonnull()) {
-                nTrackerLayer = muon->innerTrack()->hitPattern().trackerLayersWithMeasurement();
-                nPixelHit = muon->innerTrack()->hitPattern().numberOfValidPixelHits();
-              }
-              isHybrid = isGlobal && nTrackerLayer > 5 && nPixelHit > 0;
-            }
-          }
-          dau_isGlobal_[iDau].push_back(isGlobal);
-          dau_isPF_[iDau].push_back(isPF);
-          dau_isSoft_[iDau].push_back(isSoft);
-          dau_isTight_[iDau].push_back(isTight);
-          dau_isHybrid_[iDau].push_back(isHybrid);
-          dau_nMuonHit_[iDau].push_back(nMuonHit);
-          dau_nMatchedStation_[iDau].push_back(nMatchedStation);
-          dau_nTrackerLayer_[iDau].push_back(nTrackerLayer);
-          dau_nPixelHit_[iDau].push_back(nPixelHit);
-        }
+      // Assign dEdx
+      float dedx = DUMMY;
+      if(candidateType_ == CandidateType::DStar || candidateType_ == CandidateType::DStar5P) {
+        dedx = (iDau == 1) ? slowPionDeDx : DUMMY;
+      } else if(candidateType_ == CandidateType::X3872) {
+        if(iDau == 1) dedx = posDauDeDx;
+        else if(iDau == 2) dedx = negDauDeDx;
+      } else if(candidateType_ == CandidateType::ChiC || candidateType_ == CandidateType::BcSemiLep) {
+        dedx = DUMMY;
       } else {
-        // Null daughter - fill dummy
-        dau_pt_[iDau].push_back(DUMMY);
-        dau_eta_[iDau].push_back(DUMMY);
-        dau_phi_[iDau].push_back(DUMMY);
-        dau_mass_[iDau].push_back(DUMMY);
-        dau_charge_[iDau].push_back(0);
-        dau_dedx_[iDau].push_back(DUMMY);
+        dedx = (iDau == 0) ? posDauDeDx : negDauDeDx;
+      }
+      dau_dedx_[iDau].push_back(dedx);
+
+      // Track info
+      const reco::Track* trk = dau->bestTrack();
+      if(trk) {
+        const double dz = trk->dz(pvPos);
+        const double dxy = trk->dxy(pvPos);
+        const double dzErr = std::sqrt(trk->dzError()*trk->dzError() + pv.zError()*pv.zError());
+        const double dxyErr = std::sqrt(trk->d0Error()*trk->d0Error() + pv.xError()*pv.yError());
+
+        dau_dzSig_[iDau].push_back(dzErr > 0 ? dz/dzErr : DUMMY);
+        dau_dxySig_[iDau].push_back(dxyErr > 0 ? dxy/dxyErr : DUMMY);
+        dau_nhit_[iDau].push_back(trk->numberOfValidHits());
+        dau_ptErr_[iDau].push_back(trk->ptError());
+        dau_trkChi2_[iDau].push_back(trk->normalizedChi2());
+        dau_highPurity_[iDau].push_back(trk->quality(reco::TrackBase::highPurity));
+      } else {
         dau_dzSig_[iDau].push_back(DUMMY);
         dau_dxySig_[iDau].push_back(DUMMY);
         dau_nhit_[iDau].push_back(-1);
         dau_ptErr_[iDau].push_back(DUMMY);
         dau_trkChi2_[iDau].push_back(DUMMY);
         dau_highPurity_[iDau].push_back(false);
-        if(doMuon_) {
-          dau_isGlobal_[iDau].push_back(false);
-          dau_isPF_[iDau].push_back(false);
-          dau_isSoft_[iDau].push_back(false);
-          dau_isTight_[iDau].push_back(false);
-          dau_isHybrid_[iDau].push_back(false);
-          dau_nMuonHit_[iDau].push_back(-1);
-          dau_nMatchedStation_[iDau].push_back(-1);
-          dau_nTrackerLayer_[iDau].push_back(-1);
-          dau_nPixelHit_[iDau].push_back(-1);
+      }
+
+      // Muon info
+      if(doMuon_) {
+        bool isGlobal = false, isPF = false, isSoft = false, isTight = false, isHybrid = false;
+        short nMuonHit = -1, nMatchedStation = -1, nTrackerLayer = -1, nPixelHit = -1;
+
+        const auto* muon = dynamic_cast<const pat::Muon*>(dau);
+        if(muon) {
+          isGlobal = muon->isGlobalMuon();
+          isPF = muon->isPFMuon();
+          isSoft = muon->isSoftMuon(pv);
+          isTight = muon->isTightMuon(pv);
+
+          if(muon->globalTrack().isNonnull()) {
+            nMuonHit = muon->globalTrack()->hitPattern().numberOfValidMuonHits();
+          }
+          nMatchedStation = muon->numberOfMatchedStations();
+          if(muon->innerTrack().isNonnull()) {
+            nTrackerLayer = muon->innerTrack()->hitPattern().trackerLayersWithMeasurement();
+            nPixelHit = muon->innerTrack()->hitPattern().numberOfValidPixelHits();
+          }
+          isHybrid = isGlobal && nTrackerLayer > 5 && nPixelHit > 0;
         }
+        dau_isGlobal_[iDau].push_back(isGlobal);
+        dau_isPF_[iDau].push_back(isPF);
+        dau_isSoft_[iDau].push_back(isSoft);
+        dau_isTight_[iDau].push_back(isTight);
+        dau_isHybrid_[iDau].push_back(isHybrid);
+        dau_nMuonHit_[iDau].push_back(nMuonHit);
+        dau_nMatchedStation_[iDau].push_back(nMatchedStation);
+        dau_nTrackerLayer_[iDau].push_back(nTrackerLayer);
+        dau_nPixelHit_[iDau].push_back(nPixelHit);
+      }
+
+      if(candidateType_ == CandidateType::BcSemiLep) {
+        short lepPdgId = 0;
+        bool isElectron = false;
+        float relIso03 = DUMMY;
+        float relIso04 = DUMMY;
+        bool passConvVeto = false;
+        short missingHits = -1;
+        float sigmaIetaIeta = DUMMY;
+        float hOverE = DUMMY;
+        float dEtaIn = DUMMY;
+        float dPhiIn = DUMMY;
+        float ooEmooP = DUMMY;
+
+        const auto* muon = dynamic_cast<const pat::Muon*>(dau);
+        const auto* ele = dynamic_cast<const pat::Electron*>(dau);
+        if(muon) {
+          lepPdgId = (muon->charge() > 0) ? -13 : 13;
+          const auto& iso03 = muon->isolationR03();
+          relIso03 = (iso03.sumPt + iso03.emEt + iso03.hadEt) / std::max(1.f, static_cast<float>(muon->pt()));
+          const auto& pfi = muon->pfIsolationR04();
+          const float neutral = pfi.sumNeutralHadronEt + pfi.sumPhotonEt - 0.5f * pfi.sumPUPt;
+          relIso04 = (pfi.sumChargedHadronPt + std::max(0.f, neutral)) / std::max(1.f, static_cast<float>(muon->pt()));
+        } else if(ele) {
+          lepPdgId = (ele->charge() > 0) ? -11 : 11;
+          isElectron = true;
+          relIso03 =
+              (ele->dr03TkSumPt() + ele->dr03EcalRecHitSumEt() + ele->dr03HcalTowerSumEt()) /
+              std::max(1.f, static_cast<float>(ele->pt()));
+          const auto& pfi = ele->pfIsolationVariables();
+          const float neutral = pfi.sumNeutralHadronEt + pfi.sumPhotonEt - 0.5f * pfi.sumPUPt;
+          relIso04 = (pfi.sumChargedHadronPt + std::max(0.f, neutral)) / std::max(1.f, static_cast<float>(ele->pt()));
+          passConvVeto = ele->passConversionVeto();
+          if(ele->gsfTrack().isNonnull()) {
+            missingHits = ele->gsfTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS);
+          }
+          sigmaIetaIeta = ele->full5x5_sigmaIetaIeta();
+          hOverE = ele->hadronicOverEm();
+          dEtaIn = ele->deltaEtaSuperClusterTrackAtVtx();
+          dPhiIn = ele->deltaPhiSuperClusterTrackAtVtx();
+          const float ecalE = ele->ecalEnergy();
+          if(ecalE > 0) {
+            ooEmooP = std::abs(1.f / ecalE - ele->eSuperClusterOverP() / ecalE);
+          }
+        }
+
+        dau_lepPdgId_[iDau].push_back(lepPdgId);
+        dau_isElectron_[iDau].push_back(isElectron);
+        dau_relIso03_[iDau].push_back(relIso03);
+        dau_relIso04_[iDau].push_back(relIso04);
+        dau_passConvVeto_[iDau].push_back(passConvVeto);
+        dau_missingHits_[iDau].push_back(missingHits);
+        dau_sigmaIetaIeta_[iDau].push_back(sigmaIetaIeta);
+        dau_hOverE_[iDau].push_back(hOverE);
+        dau_dEtaIn_[iDau].push_back(dEtaIn);
+        dau_dPhiIn_[iDau].push_back(dPhiIn);
+        dau_ooEmooP_[iDau].push_back(ooEmooP);
+      }
+    } else {
+      // Null daughter - fill dummy
+      dau_pt_[iDau].push_back(DUMMY);
+      dau_eta_[iDau].push_back(DUMMY);
+      dau_phi_[iDau].push_back(DUMMY);
+      dau_mass_[iDau].push_back(DUMMY);
+      dau_charge_[iDau].push_back(0);
+      dau_dedx_[iDau].push_back(DUMMY);
+      dau_dzSig_[iDau].push_back(DUMMY);
+      dau_dxySig_[iDau].push_back(DUMMY);
+      dau_nhit_[iDau].push_back(-1);
+      dau_ptErr_[iDau].push_back(DUMMY);
+      dau_trkChi2_[iDau].push_back(DUMMY);
+      dau_highPurity_[iDau].push_back(false);
+      if(doMuon_) {
+        dau_isGlobal_[iDau].push_back(false);
+        dau_isPF_[iDau].push_back(false);
+        dau_isSoft_[iDau].push_back(false);
+        dau_isTight_[iDau].push_back(false);
+        dau_isHybrid_[iDau].push_back(false);
+        dau_nMuonHit_[iDau].push_back(-1);
+        dau_nMatchedStation_[iDau].push_back(-1);
+        dau_nTrackerLayer_[iDau].push_back(-1);
+        dau_nPixelHit_[iDau].push_back(-1);
+      }
+      if(candidateType_ == CandidateType::BcSemiLep) {
+        dau_lepPdgId_[iDau].push_back(0);
+        dau_isElectron_[iDau].push_back(false);
+        dau_relIso03_[iDau].push_back(DUMMY);
+        dau_relIso04_[iDau].push_back(DUMMY);
+        dau_passConvVeto_[iDau].push_back(false);
+        dau_missingHits_[iDau].push_back(-1);
+        dau_sigmaIetaIeta_[iDau].push_back(DUMMY);
+        dau_hOverE_[iDau].push_back(DUMMY);
+        dau_dEtaIn_[iDau].push_back(DUMMY);
+        dau_dPhiIn_[iDau].push_back(DUMMY);
+        dau_ooEmooP_[iDau].push_back(DUMMY);
       }
     }
   }
@@ -941,7 +1283,8 @@ void PATCompositeNtupleProducer::fillCandidate(const pat::CompositeCandidate& ca
       dcDecLenSig3D = dauCand->hasUserFloat("decaylengthsignif3D") ? dauCand->userFloat("decaylengthsignif3D") : DUMMY;
 
       // Grand-daughters (only for D*, not B mesons)
-      bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero || candidateType_ == CandidateType::Bc);
+      bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero ||
+                       candidateType_ == CandidateType::Bc || candidateType_ == CandidateType::BcSemiLep);
       if(!isBMeson && nGDau_ > 0) {
         const ushort nGDaughters = std::min(static_cast<ushort>(dauCand->numberOfDaughters()), nGDau_);
         
@@ -995,7 +1338,8 @@ void PATCompositeNtupleProducer::fillCandidate(const pat::CompositeCandidate& ca
       }
     } else {
       // No composite daughter found - fill grand-daughter dummies
-      bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero || candidateType_ == CandidateType::Bc);
+      bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero ||
+                       candidateType_ == CandidateType::Bc || candidateType_ == CandidateType::BcSemiLep);
       if(!isBMeson && nGDau_ > 0) {
         for(int iGDau = 0; iGDau < nGDau_; ++iGDau) {
           gdau_pt_[iGDau].push_back(DUMMY);
@@ -1022,7 +1366,8 @@ void PATCompositeNtupleProducer::fillCandidate(const pat::CompositeCandidate& ca
     dauCand_decayLengthSig3D_.push_back(dcDecLenSig3D);
 
     // For B mesons: store jpsiIdx
-    bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero || candidateType_ == CandidateType::Bc);
+    bool isBMeson = (candidateType_ == CandidateType::BPlus || candidateType_ == CandidateType::BZero ||
+                     candidateType_ == CandidateType::Bc || candidateType_ == CandidateType::BcSemiLep);
     if(isBMeson) {
       int jpsiIdx = cand.hasUserInt("jpsiIdx") ? cand.userInt("jpsiIdx") : -1;
       jpsiIdx_.push_back(jpsiIdx);
@@ -1158,6 +1503,7 @@ std::vector<GenDecay> PATCompositeNtupleProducer::findAllGenDecays(const reco::G
       expectedPdgIds = {511, -511};  // B0 and anti-B0
       break;
     case CandidateType::Bc:
+    case CandidateType::BcSemiLep:
       expectedPdgIds = {541, -541};  // Bc+ and Bc-
       break;
     case CandidateType::X3872:
@@ -1259,6 +1605,98 @@ std::vector<GenDecay> PATCompositeNtupleProducer::findAllGenDecays(const reco::G
           if(gdau && std::abs(gdau->pdgId()) == 13) {  // Muon
             decay.grandDaughters.push_back(gdau);
           }
+        }
+      }
+    } else if(candidateType_ == CandidateType::BcSemiLep) {
+      // Bc -> J/psi(->ll) + l + nu
+      const reco::GenParticle* genJpsi = nullptr;
+      std::vector<const reco::GenParticle*> bcLeptons;
+      std::vector<const reco::GenParticle*> bcNeutrinos;
+
+      for(size_t d = 0; d < gen.numberOfDaughters(); ++d) {
+        const reco::GenParticle* dau = dynamic_cast<const reco::GenParticle*>(gen.daughter(d));
+        if(!dau) continue;
+
+        if(isJpsiLikePdgId(dau->pdgId())) {
+          if(!genJpsi || dau->pt() > genJpsi->pt()) genJpsi = dau;
+          continue;
+        }
+        collectFinalStateParticles(dau, bcLeptons, bcNeutrinos);
+      }
+
+      if(genJpsi) {
+        std::vector<const reco::GenParticle*> jpsiLeptons;
+        std::vector<const reco::GenParticle*> jpsiNeutrinos;
+        collectFinalStateParticles(genJpsi, jpsiLeptons, jpsiNeutrinos);
+
+        // Remove any J/psi descendants from W-lepton side collections.
+        bcLeptons.erase(
+            std::remove_if(bcLeptons.begin(),
+                           bcLeptons.end(),
+                           [&](const reco::GenParticle* p) { return isDescendantOf(p, genJpsi); }),
+            bcLeptons.end());
+        bcNeutrinos.erase(
+            std::remove_if(bcNeutrinos.begin(),
+                           bcNeutrinos.end(),
+                           [&](const reco::GenParticle* p) { return isDescendantOf(p, genJpsi); }),
+            bcNeutrinos.end());
+
+        const reco::GenParticle* jpsiLep1 = nullptr;
+        const reco::GenParticle* jpsiLep2 = nullptr;
+        double bestJpsiPairPt = -1.0;
+        for(size_t iL = 0; iL < jpsiLeptons.size(); ++iL) {
+          for(size_t jL = iL + 1; jL < jpsiLeptons.size(); ++jL) {
+            const auto* lep1 = jpsiLeptons[iL];
+            const auto* lep2 = jpsiLeptons[jL];
+            if(!lep1 || !lep2) continue;
+            if(std::abs(lep1->pdgId()) != std::abs(lep2->pdgId())) continue;
+            if(leptonChargeFromPdgId(lep1->pdgId()) * leptonChargeFromPdgId(lep2->pdgId()) >= 0) continue;
+
+            const double pairPt = lep1->pt() + lep2->pt();
+            if(pairPt > bestJpsiPairPt) {
+              bestJpsiPairPt = pairPt;
+              jpsiLep1 = lep1;
+              jpsiLep2 = lep2;
+            }
+          }
+        }
+
+        if(jpsiLep1 && jpsiLep2 && leptonChargeFromPdgId(jpsiLep1->pdgId()) < 0 &&
+           leptonChargeFromPdgId(jpsiLep2->pdgId()) > 0) {
+          std::swap(jpsiLep1, jpsiLep2);
+        }
+
+        const reco::GenParticle* wLep = nullptr;
+        for(const auto* lep : bcLeptons) {
+          if(!lep) continue;
+          if(!wLep || lep->pt() > wLep->pt()) wLep = lep;
+        }
+
+        const reco::GenParticle* wNu = nullptr;
+        int targetNuAbsPdg = 0;
+        if(wLep) {
+          const int absLep = std::abs(wLep->pdgId());
+          if(absLep == 11) targetNuAbsPdg = 12;
+          else if(absLep == 13) targetNuAbsPdg = 14;
+        }
+        for(const auto* nu : bcNeutrinos) {
+          if(!nu) continue;
+          if(targetNuAbsPdg != 0 && std::abs(nu->pdgId()) != targetNuAbsPdg) continue;
+          if(!wNu || nu->pt() > wNu->pt()) wNu = nu;
+        }
+        if(!wNu) {
+          for(const auto* nu : bcNeutrinos) {
+            if(!nu) continue;
+            if(!wNu || nu->pt() > wNu->pt()) wNu = nu;
+          }
+        }
+
+        if(jpsiLep1 && jpsiLep2 && wLep && wNu) {
+          decay.daughters.push_back(genJpsi);
+          decay.daughters.push_back(wLep);
+          decay.daughters.push_back(wNu);
+          decay.grandDaughters.push_back(jpsiLep1);
+          decay.grandDaughters.push_back(jpsiLep2);
         }
       }
     } else if(candidateType_ == CandidateType::X3872) {
