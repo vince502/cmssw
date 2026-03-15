@@ -437,6 +437,7 @@ void EvtGenInterface::init() {
       forced_pdgids.push_back(EvtPDL::getStdHep(found));  // force_pdgids is the list of stdhep codes
     }
   }
+  forceAllRequestedDecays_ = fPSet->getUntrackedParameter<bool>("forceAllRequestedDecays", false);
   edm::LogInfo("EvtGenInterface::~EvtGenInterface")
       << "Number of Forced Paricles is: " << forced_pdgids.size() << std::endl;
   for (unsigned int j = 0; j < forced_id.size(); j++) {
@@ -464,7 +465,6 @@ HepMC::GenEvent* EvtGenInterface::decay(HepMC::GenEvent* evt) {
   // decay all request unforced particles and store the forced decays to later decay one per event
   unsigned int nisforced = 0;
   std::vector<std::vector<HepMC::GenParticle*> > forcedparticles;
-  forcedparticles.reserve(forced_pdgids.size());
   for (unsigned int i = 0; i < forced_pdgids.size(); i++)
     forcedparticles.push_back(std::vector<HepMC::GenParticle*>());
 
@@ -504,16 +504,24 @@ HepMC::GenEvent* EvtGenInterface::decay(HepMC::GenEvent* evt) {
     }
   }
 
-  // decay all forced particles (only 1/event is forced)... with no mixing allowed
-  unsigned int which = (unsigned int)(nisforced * flat());
-  if (which == nisforced && nisforced > 0)
-    which = nisforced - 1;
+  // Preserve the release default unless explicitly requested by the config.
+  unsigned int which = 0;
+  if (!forceAllRequestedDecays_) {
+    which = (unsigned int)(nisforced * flat());
+    if (which == nisforced && nisforced > 0)
+      which = nisforced - 1;
+  }
 
   unsigned int idx = 0;
   for (unsigned int i = 0; i < forcedparticles.size(); i++) {
     for (unsigned int j = 0; j < forcedparticles.at(i).size(); j++) {
       EvtId idEvt = EvtPDL::evtIdFromStdHep(forcedparticles.at(i).at(j)->pdg_id());  // "standard" decay Id
-      if (idx == which) {
+      if (forceAllRequestedDecays_) {
+        idEvt = forced_id[i];
+        edm::LogInfo("EvtGenInterface::decay ")
+            << EvtPDL::getStdHep(idEvt) << " will force to decay candidate " << idx + 1 << " out of " << nisforced
+            << std::endl;
+      } else if (idx == which) {
         idEvt = forced_id[i];  // force decay Id
         edm::LogInfo("EvtGenInterface::decay ")
             << EvtPDL::getStdHep(idEvt) << " will force to decay " << idx + 1 << " out of " << nisforced << std::endl;
