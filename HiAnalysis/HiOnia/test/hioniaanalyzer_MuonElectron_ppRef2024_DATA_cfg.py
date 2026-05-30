@@ -3,12 +3,12 @@ import FWCore.ParameterSet.VarParsing as VarParsing
 from Configuration.StandardSequences.Eras import eras
 
 #----------------------------------------------------------------------------
-# Combined Muon + Electron Z TREE: 2024 ppRef Prompt Reco DATA
+# Combined Muon + Electron Z TREE: 2026 PbPb Prompt Reco DATA
 #----------------------------------------------------------------------------
 
 print("="*80)
 print("COMBINED MUON + ELECTRON Z TREE ANALYZER")
-print("Configuration: 2024 ppRef (5.36 TeV) Prompt Reco DATA")
+print("Configuration: 2026 PbPb Prompt Reco DATA")
 print("="*80)
 
 HLTProcess     = "HLT"
@@ -39,16 +39,33 @@ print(f"[INFO]   useMomFormat         = {useMomFormat}")
 print("="*80)
 
 # Set up process
-process = cms.Process("HIOnia", eras.Run3_2024_ppRef)
+process = cms.Process("HIOnia", eras.Run3_pp_on_PbPb_2026)
 
 # Setup options
 options = VarParsing.VarParsing('analysis')
-options.outputFile = "OniaTree_MuonElectron_ppRef2024_DATA.root"
-options.inputFiles = [
-    '/store/data/Run2024J/PPRefSingleMuon3/MINIAOD/PromptReco-v1/000/387/721/00000/f067bcfd-94c5-455e-913d-7f9aa4c854fa.root',
-]
+options.outputFile = "OniaTree_MuonElectron_PbPb2026_DATA.root"
+options.inputFiles = []
+options.register(
+    'datasetFile',
+    'datasets.txt',
+    VarParsing.VarParsing.multiplicity.singleton,
+    VarParsing.VarParsing.varType.string,
+    'Text file containing one input MINIAOD file per line'
+)
 options.maxEvents = -1
 options.parseArguments()
+
+if options.datasetFile:
+    with open(options.datasetFile) as dataset_file:
+        dataset_files = [
+            line.strip()
+            for line in dataset_file
+            if line.strip() and not line.lstrip().startswith('#')
+        ]
+    if not dataset_files:
+        raise RuntimeError(f"No input files found in datasetFile={options.datasetFile}")
+    options.inputFiles = dataset_files
+    print(f"[INFO] Loaded {len(options.inputFiles)} input files from {options.datasetFile}")
 
 #----------------------------------------------------------------------------
 # Global Tag and Services
@@ -60,7 +77,7 @@ process.load('Configuration.StandardSequences.MagneticField_38T_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 from Configuration.AlCa.GlobalTag import GlobalTag
-globalTag = '141X_dataRun3_Prompt_v3'  # 2024 Prompt Reco
+globalTag = 'auto:run3_data_prompt'
 process.GlobalTag = GlobalTag(process.GlobalTag, globalTag, '')
 
 print(f"[INFO] Using Global Tag: {globalTag}")
@@ -70,28 +87,22 @@ print(f"[INFO] Using Global Tag: {globalTag}")
 #----------------------------------------------------------------------------
 muonTriggerList = {
     'DoubleMuonTrigger': cms.vstring(
-        "HLT_PPRefL1DoubleMu0_Open_v",
-        "HLT_PPRefL1DoubleMu0_v",
-        "HLT_PPRefL1DoubleMu0_SQ_v",
-        "HLT_PPRefL1DoubleMu2_v",
-        "HLT_PPRefL1DoubleMu2_SQ_v",
-        "HLT_PPRefL2DoubleMu0_Open_v",
-        "HLT_PPRefL2DoubleMu0_v",
-        "HLT_PPRefL3DoubleMu0_Open_v",
-        "HLT_PPRefL3DoubleMu0_v"
+        "HLT_HIL1DoubleMu0_MaxDr3p5_Open_v",
+        "HLT_HIL1DoubleMu0_v",
+        "HLT_HIL1DoubleMu0_SQ_v",
+        "HLT_HIL2DoubleMu0_Open_v",
+        "HLT_HIL2DoubleMu0_M1p5to6_Open_v",
+        "HLT_HIL2DoubleMu2p8_M1p5to6_Open_v",
+        "HLT_HIL2DoubleMu0_M7to15_Open_v",
+        "HLT_HIL2DoubleMu3_M7to15_Open_v",
     ),
     'SingleMuonTrigger': cms.vstring(
-        "HLT_PPRefL1SingleMu7_v",
-        "HLT_PPRefL1SingleMu12_v",
-        "HLT_PPRefL2SingleMu7_v",
-        "HLT_PPRefL2SingleMu12_v",
-        "HLT_PPRefL2SingleMu15_v",
-        "HLT_PPRefL3SingleMu3_v",
-        "HLT_PPRefL3SingleMu5_v",
-        "HLT_PPRefL3SingleMu7_v",
-        "HLT_PPRefL3SingleMu12_v",
-        "HLT_PPRefL3SingleMu15_v",
-        "HLT_PPRefL3SingleMu20_v",
+        "HLT_HIL1SingleMu0_Open_v",
+        "HLT_HIL1SingleMu0_v",
+        "HLT_HIL2SingleMu3_Open_v",
+        "HLT_HIL2SingleMu5_v",
+        "HLT_HIL2SingleMu7_v",
+        "HLT_HIL2SingleMu12_v",
     )
 }
 
@@ -126,16 +137,23 @@ process.hionia.checkTrigNames = cms.bool(False)
 process.hionia.dblTriggerPathNames = cms.vstring()
 process.hionia.sglTriggerPathNames = cms.vstring()
 process.hionia.mom4format = cms.string(useMomFormat)
-process.hionia.isHI = cms.untracked.bool(False)
+process.hionia.isHI = cms.untracked.bool(True)
+process.hionia.CentralitySrc = cms.InputTag("hiCentrality")
+process.hionia.CentralityBinSrc = cms.InputTag("centralityBin", "HFtowers")
 
 #----------------------------------------------------------------------------
 # ELECTRON Analysis
 #----------------------------------------------------------------------------
 electronTriggerList = [
-    'HLT_PPRefEle10Gsf_v',
-    'HLT_PPRefEle15Gsf_v',
-    'HLT_PPRefEle20Gsf_v',
-    'HLT_PPRefDoubleEle10Gsf_v',
+    'HLT_HIEle10Gsf_v',
+    'HLT_HIEle15Gsf_v',
+    'HLT_HIEle20Gsf_v',
+    'HLT_HIEle30Gsf_v',
+    'HLT_HIEle40Gsf_v',
+    'HLT_HIEle50Gsf_v',
+    'HLT_HIDoubleEle10Gsf_v',
+    'HLT_HIEle15Ele10Gsf_v',
+    'HLT_HIEle15Ele10GsfMass50_v',
 ]
 
 # Load electron producer
@@ -161,15 +179,15 @@ process.hioniaElectrons = hioniaElectrons.clone(
     beamSpotTag = cms.InputTag('offlineBeamSpot'),
     conversions = cms.InputTag('reducedEgamma', 'reducedConversions'),
     triggerResults = cms.InputTag('TriggerResults', '', 'HLT'),
-    CentralitySrc = cms.InputTag(''),
-    CentralityBinSrc = cms.InputTag(''),
+    CentralitySrc = cms.InputTag('hiCentrality'),
+    CentralityBinSrc = cms.InputTag('centralityBin', 'HFtowers'),
     genParticles = cms.InputTag('prunedGenParticles'),
     triggerPathNames = cms.vstring(*electronTriggerList),
     checkTriggerNames = cms.bool(False),
     storeGenInfo = cms.bool(False),
     fillTree = cms.bool(True),
     fillHistos = cms.bool(False),
-    isHI = cms.untracked.bool(False),
+    isHI = cms.untracked.bool(True),
     isMC = cms.untracked.bool(False),
     useEvtPlane = cms.untracked.bool(False)
 )
@@ -188,13 +206,19 @@ if applyEventSel:
     
     import HLTrigger.HLTfilters.hltHighLevel_cfi
     process.hltHI = HLTrigger.HLTfilters.hltHighLevel_cfi.hltHighLevel.clone()
-    process.hltHI.HLTPaths = ["HLT_PPRefL*SingleMu*_v*", "HLT_PPRefEle*_v*"]
+    process.hltHI.HLTPaths = [
+        "HLT_HIL*SingleMu*_v*",
+        "HLT_HIL*DoubleMu*_v*",
+        "HLT_HIEle*_v*",
+        "HLT_HIDoubleEle*_v*",
+    ]
     process.hltHI.throw = False
     process.hltHI.andOr = True
     
     process.oniaTreeAna.replace(
         process.patMuonSequence,
-        process.primaryVertexFilter * 
+        process.primaryVertexFilter *
+        process.hltHI *
         process.patMuonSequence
     )
 
@@ -220,21 +244,16 @@ if miniAOD and applyEventSel:
     else:
         print("[WARN] beamScrapingFilter missing; skipping beam-scraping filter insertion")
 
-# Load required modules for electron analysis
+# Load required modules for electron analysis. HIPhysicsRawPrime MINIAOD does not
+# carry slimmedLowPtElectrons, so use slimmedElectrons directly.
 process.load('TrackingTools.TransientTrack.TransientTrackBuilder_cfi')
-process.load('HeavyIonsAnalysis.EGMAnalysis.unpackedElectrons_cfi')
-process.unpackedElectrons.primaryElectrons = cms.InputTag('slimmedElectrons')
-process.unpackedElectrons.secondaryElectrons = cms.InputTag('slimmedLowPtElectrons')
-process.unpackedElectrons.preferPrimary = cms.bool(True)
-
-# Update electron source for onia producer to use de-duplicated merged electrons.
-process.onia2ElectronElectronPatGlbGlb.electrons = cms.InputTag('unpackedElectrons')
+process.onia2ElectronElectronPatGlbGlb.electrons = cms.InputTag('slimmedElectrons')
 process.onia2ElectronElectronPatGlbGlb.srcTracks = cms.InputTag('unpackedTracksAndVertices')
 process.onia2ElectronElectronPatGlbGlb.primaryVertexTag = cms.InputTag('unpackedTracksAndVertices')
+process.hioniaElectrons.srcElectron = cms.InputTag('slimmedElectrons')
 process.hioniaElectrons.primaryVertexTag = cms.InputTag('unpackedTracksAndVertices')
 
 # Add electron analysis modules to existing path
-process.oniaTreeAna *= process.unpackedElectrons
 process.oniaTreeAna *= process.onia2ElectronElectronPatGlbGlb
 process.oniaTreeAna *= process.hioniaElectrons
 
@@ -262,5 +281,6 @@ print("Output will contain TWO trees:")
 print("  1. hionia/myTree           - Muon analysis (Z -> mu+mu-)")
 print("  2. hioniaElectrons/eleTree - Electron analysis (Z -> e+e-)")
 print(f"Output file: {options.outputFile}")
-print("NOTE: ppRef uses standard (non-HI) electron ID/ISO")
+print(f"Input files: {len(options.inputFiles)}")
+print("NOTE: using heavy-ion HLT filter patterns")
 print("="*80)
