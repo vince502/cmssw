@@ -143,6 +143,8 @@ process.hionia.applyCuts        = cms.bool(applyCuts)
 process.hionia.AtLeastOneCand   = cms.bool(atLeastOneCand)
 process.hionia.OneMatchedHLTMu  = cms.int32(OneMatchedHLTMu)
 process.hionia.checkTrigNames   = cms.bool(False)#change this to get the event-level trigger info in hStats output (but creates lots of warnings when fake trigger names are used)
+process.hionia.dblTriggerPathNames = cms.vstring()
+process.hionia.sglTriggerPathNames = cms.vstring()
 process.hionia.mom4format       = cms.string(useMomFormat)
 process.hionia.isHI = cms.untracked.bool(False)
 '''
@@ -190,7 +192,13 @@ if saveHLT:
 
 if applyEventSel:
     # Offline event filters
-    process.load('HeavyIonsAnalysis.EventAnalysis.collisionEventSelection_cff')
+    process.load('HeavyIonsAnalysis.Configuration.collisionEventSelection_cff')
+    process.primaryVertexFilter = cms.EDFilter(
+        "VertexSelector",
+        src=cms.InputTag("offlineSlimmedPrimaryVertices"),
+        cut=cms.string("!isFake && ndof > 4 && abs(z) <= 24 && position.Rho <= 2"),
+        filter=cms.bool(True),
+    )
 
     # HLT trigger firing events
     import HLTrigger.HLTfilters.hltHighLevel_cfi
@@ -248,10 +256,14 @@ process.oniaTreeAna = cms.Path(process.oniaTreeAna)
 if miniAOD:
   from HiSkim.HiOnia2MuMu.onia2MuMuPAT_cff import changeToMiniAOD
   changeToMiniAOD(process)
-  process.unpackedMuons.addPropToMuonSt = cms.bool(UsePropToMuonSt)
+  if hasattr(process, "unpackedMuons"):
+    process.unpackedMuons.addPropToMuonSt = cms.bool(UsePropToMuonSt)
 
   if applyEventSel:
-    process.oniaTreeAna.replace(process.hionia, process.beamScrapingFilter * process.hionia ) # must be called after unpacking
+    if hasattr(process, "beamScrapingFilter"):
+      process.oniaTreeAna.replace(process.hionia, process.beamScrapingFilter * process.hionia ) # must be called after unpacking
+    else:
+      print("[WARN] beamScrapingFilter missing; skipping beam-scraping filter insertion")
 
 #----------------------------------------------------------------------------
 #Options:

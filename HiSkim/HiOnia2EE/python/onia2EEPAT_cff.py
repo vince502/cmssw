@@ -84,7 +84,7 @@ def setupOnia2EEForMiniAOD(process, producer='onia2ElectronElectronPatGlbGlb', r
         return process
 
     process.load('TrackingTools.TransientTrack.TransientTrackBuilder_cfi')
-    process.load('HeavyIonsAnalysis.TrackAnalysis.unpackedTracksAndVertices_cfi')
+    process.load('PhysicsTools.PatAlgos.slimming.unpackedTracksAndVertices_cfi')
 
     module = getattr(process, producer)
     module.srcTracks = cms.InputTag('unpackedTracksAndVertices')

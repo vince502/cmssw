@@ -171,37 +171,45 @@ def changeToMiniAOD(process):
 
     if hasattr(process, "patMuonsWithTrigger"):
         from MuonAnalysis.MuonAssociators.patMuonsWithTrigger_cff import useExistingPATMuons
-        useExistingPATMuons(process, newPatMuonTag=cms.InputTag("unpackedMuons"), addL1Info=False)
 
         process.patTriggerFull = cms.EDProducer("PATTriggerObjectStandAloneUnpacker",
             patTriggerObjectsStandAlone = cms.InputTag('slimmedPatTrigger'),
             triggerResults              = cms.InputTag('TriggerResults::HLT'),
             unpackFilterLabels          = cms.bool(True)
         )
-        process.load('HeavyIonsAnalysis.TrackAnalysis.unpackedTracksAndVertices_cfi')
+        process.load('PhysicsTools.PatAlgos.slimming.unpackedTracksAndVertices_cfi')
         process.patMuonSequence.insert(0, process.unpackedTracksAndVertices)
-        process.load('HeavyIonsAnalysis.MuonAnalysis.unpackedMuons_cfi')
-        if not process.hionia.isHI:
-            process.unpackedMuons.muonSelectors = []
-        process.patMuonSequence.insert(1, process.unpackedMuons)
+        patMuonInput = cms.InputTag("slimmedMuons")
+        try:
+            process.load('HeavyIonsAnalysis.MuonAnalysis.unpackedMuons_cfi')
+            if not process.hionia.isHI:
+                process.unpackedMuons.muonSelectors = []
+            process.patMuonSequence.insert(1, process.unpackedMuons)
+            patMuonInput = cms.InputTag("unpackedMuons")
+            process.outOnia2MuMu.outputCommands.append('keep patMuons_unpackedMuons_*_*')
+        except ImportError:
+            print("[INFO] HeavyIonsAnalysis.MuonAnalysis.unpackedMuons_cfi not found; using slimmedMuons directly")
+        useExistingPATMuons(process, newPatMuonTag=patMuonInput, addL1Info=False)
 
         process.outOnia2MuMu.outputCommands.append('keep *Vert*_unpackedTracksAndVertices_*_*')
-        process.outOnia2MuMu.outputCommands.append('keep patMuons_unpackedMuons_*_*')
         process.outOnia2MuMu.outputCommands.append('drop patMuons_patMuonsWith*_*_*')
 
         if hasattr(process, "muonMatch"):
             from MuonAnalysis.MuonAssociators.patMuonsWithTrigger_cff import changeRecoMuonInput
-            changeRecoMuonInput(process, recoMuonCollectionTag=cms.InputTag("unpackedMuonsWithGenMatch"), oldRecoMuonCollectionTag=cms.InputTag("unpackedMuons"))
-            process.load('HeavyIonsAnalysis.MuonAnalysis.unpackedMuonsWithGenMatch_cfi')
-            process.patMuonsWithTriggerSequence.insert(1, process.unpackedMuonsWithGenMatch)
+            try:
+                process.load('HeavyIonsAnalysis.MuonAnalysis.unpackedMuonsWithGenMatch_cfi')
+                process.patMuonsWithTriggerSequence.insert(1, process.unpackedMuonsWithGenMatch)
+                changeRecoMuonInput(process, recoMuonCollectionTag=cms.InputTag("unpackedMuonsWithGenMatch"), oldRecoMuonCollectionTag=patMuonInput)
+                process.outOnia2MuMu.outputCommands.append('keep patMuons_unpackedMuonsWithGenMatch_*_*')
+                process.outOnia2MuMu.outputCommands.append('drop patMuons_unpackedMuons_*_*')
+            except ImportError:
+                changeRecoMuonInput(process, recoMuonCollectionTag=patMuonInput, oldRecoMuonCollectionTag=cms.InputTag("muons"))
 
             process.onia2MuMuPatGlbGlb.genParticles = "prunedGenParticles"
             process.genMuons.src = "prunedGenParticles"
-            process.muonMatch.src = "unpackedMuons"
+            process.muonMatch.src = patMuonInput
 
             process.outOnia2MuMu.outputCommands.append('keep *_prunedGenParticles_*_*')
-            process.outOnia2MuMu.outputCommands.append('keep patMuons_unpackedMuonsWithGenMatch_*_*')
-            process.outOnia2MuMu.outputCommands.append('drop patMuons_unpackedMuons_*_*')
 
 
     from HLTrigger.Configuration.CustomConfigs import massReplaceInputTag

@@ -3,11 +3,11 @@ import FWCore.ParameterSet.VarParsing as VarParsing
 from Configuration.StandardSequences.Eras import eras
 
 #----------------------------------------------------------------------------
-# Combined Muon + Electron ONIA TREE: 2024 ppRef Prompt Reco DATA
+# Combined Muon + Electron Z TREE: 2024 ppRef Prompt Reco DATA
 #----------------------------------------------------------------------------
 
 print("="*80)
-print("COMBINED MUON + ELECTRON ONIA TREE ANALYZER")
+print("COMBINED MUON + ELECTRON Z TREE ANALYZER")
 print("Configuration: 2024 ppRef (5.36 TeV) Prompt Reco DATA")
 print("="*80)
 
@@ -26,7 +26,7 @@ OneMatchedHLTMu = -1
 keepExtraColl  = False
 miniAOD        = True
 UsePropToMuonSt = True
-pdgId = 443  # J/Psi
+pdgId = 23  # Z
 useMomFormat = "array"
 
 # Print settings
@@ -105,11 +105,11 @@ oniaTreeAnalyzer(process,
                  outputFileName=options.outputFile,
                  doTrimu=doTrimuons)
 
-# Bc semileptonic preselection: keep J/psi + psi(2S) dimuon region
+# Z -> mu+mu- preselection
 process.onia2MuMuPatGlbGlb.dimuonSelection = cms.string(
-    "mass > 2.2 && mass < 4.0 && charge==0 && abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25"
+    "mass > 60 && mass < 120 && charge==0 && abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25"
 )
-process.onia2MuMuPatGlbGlb.lowerPuritySelection = cms.string("pt > 1.0 && abs(eta) < 2.4 && isTrackerMuon")
+process.onia2MuMuPatGlbGlb.lowerPuritySelection = cms.string("pt > 15.0 && abs(eta) < 2.4 && isTrackerMuon")
 if applyCuts:
     process.onia2MuMuPatGlbGlb.LateDimuonSel = cms.string("userFloat(\"vProb\")>0.001")
 
@@ -123,6 +123,8 @@ process.hionia.applyCuts = cms.bool(applyCuts)
 process.hionia.AtLeastOneCand = cms.bool(atLeastOneCand)
 process.hionia.OneMatchedHLTMu = cms.int32(OneMatchedHLTMu)
 process.hionia.checkTrigNames = cms.bool(False)
+process.hionia.dblTriggerPathNames = cms.vstring()
+process.hionia.sglTriggerPathNames = cms.vstring()
 process.hionia.mom4format = cms.string(useMomFormat)
 process.hionia.isHI = cms.untracked.bool(False)
 
@@ -139,12 +141,12 @@ electronTriggerList = [
 # Load electron producer
 process.load('HiSkim.HiOnia2EE.onia2EEPAT_cff')
 
-# Bc semileptonic preselection: keep J/psi + psi(2S) dielectron region
+# Z -> e+e- preselection
 process.onia2ElectronElectronPatGlbGlb.dielectronSelection = cms.string(
-    "mass > 2.2 && mass < 4.0 && charge == 0"
+    "mass > 60 && mass < 120 && charge == 0"
 )
-process.onia2ElectronElectronPatGlbGlb.higherPuritySelection = cms.string("pt > 1.5 && abs(eta) < 2.4")
-process.onia2ElectronElectronPatGlbGlb.lowerPuritySelection = cms.string("pt > 1.0 && abs(eta) < 2.4")
+process.onia2ElectronElectronPatGlbGlb.higherPuritySelection = cms.string("pt > 15.0 && abs(eta) < 2.4")
+process.onia2ElectronElectronPatGlbGlb.lowerPuritySelection = cms.string("pt > 15.0 && abs(eta) < 2.4")
 process.onia2ElectronElectronPatGlbGlb.primaryVertexTag = cms.InputTag("offlineSlimmedPrimaryVertices")
 process.onia2ElectronElectronPatGlbGlb.conversions = cms.InputTag("reducedEgamma", "reducedConversions")
 process.onia2ElectronElectronPatGlbGlb.doTriggerMatching = False
@@ -176,7 +178,13 @@ process.hioniaElectrons = hioniaElectrons.clone(
 # Event Selection (Optional)
 #----------------------------------------------------------------------------
 if applyEventSel:
-    process.load('HeavyIonsAnalysis.EventAnalysis.collisionEventSelection_cff')
+    process.load('HeavyIonsAnalysis.Configuration.collisionEventSelection_cff')
+    process.primaryVertexFilter = cms.EDFilter(
+        "VertexSelector",
+        src=cms.InputTag("offlineSlimmedPrimaryVertices"),
+        cut=cms.string("!isFake && ndof > 4 && abs(z) <= 24 && position.Rho <= 2"),
+        filter=cms.bool(True),
+    )
     
     import HLTrigger.HLTfilters.hltHighLevel_cfi
     process.hltHI = HLTrigger.HLTfilters.hltHighLevel_cfi.hltHighLevel.clone()
@@ -197,7 +205,8 @@ if applyEventSel:
 if miniAOD:
     from HiSkim.HiOnia2MuMu.onia2MuMuPAT_cff import changeToMiniAOD
     changeToMiniAOD(process)
-    process.unpackedMuons.addPropToMuonSt = cms.bool(UsePropToMuonSt)
+    if hasattr(process, "unpackedMuons"):
+        process.unpackedMuons.addPropToMuonSt = cms.bool(UsePropToMuonSt)
     # Canonical MiniAOD vertex source for muon-side modules
     process.onia2MuMuPatGlbGlb.primaryVertexTag = cms.InputTag("unpackedTracksAndVertices")
     process.patMuonsWithoutTrigger.pvSrc = cms.InputTag("unpackedTracksAndVertices")
