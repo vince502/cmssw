@@ -27,7 +27,7 @@ keepExtraColl  = False
 miniAOD        = True
 UsePropToMuonSt = True
 pdgId = 23  # Z
-useMomFormat = "array"
+useMomFormat = "vector"
 
 # Print settings
 print("[INFO] Settings:")
