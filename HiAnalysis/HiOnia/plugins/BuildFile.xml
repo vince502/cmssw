@@ -1,3 +1,10 @@
 <use   name="HiAnalysis/HiOnia"/>
 <use   name="CommonTools/Egamma"/>
+<use   name="DataFormats/Math"/>
+<use   name="DataFormats/PatCandidates"/>
+<use   name="DataFormats/ParticleFlowCandidate"/>
+<use   name="PhysicsTools/XGBoost"/>
+<use   name="fastjet"/>
+<use   name="fastjet-contrib"/>
+<use   name="correctionlib"/>
 <flags EDM_PLUGIN="1"/>

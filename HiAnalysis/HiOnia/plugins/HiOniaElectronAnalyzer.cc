@@ -31,6 +31,13 @@ HiOniaElectronAnalyzer::HiOniaElectronAnalyzer(const edm::ParameterSet& iConfig)
       centralityBinToken_(),
       evtPlaneToken_(),
       genParticleToken_(),
+      eleVIDVetoIdMapToken_(),
+      eleVIDLooseIdMapToken_(),
+      eleVIDMediumIdMapToken_(),
+      eleVIDTightIdMapToken_(),
+      hiMVAScalarRhoToken_(),
+      hiMVARhoEtaMapToken_(),
+      hiMVARhoMapToken_(),
       triggerPathNames_(iConfig.getParameter<std::vector<std::string> >("triggerPathNames")),
       triggerLabels_(),
       checkTriggerNames_(iConfig.getParameter<bool>("checkTriggerNames")),
@@ -40,6 +47,14 @@ HiOniaElectronAnalyzer::HiOniaElectronAnalyzer(const edm::ParameterSet& iConfig)
       useEvtPlane_(iConfig.getUntrackedParameter<bool>("useEvtPlane", false)),
       fillTree_(iConfig.getParameter<bool>("fillTree")),
       fillHistos_(iConfig.getParameter<bool>("fillHistos")),
+      useVIDElectronID_(iConfig.existsAs<bool>("useVIDElectronID") ? iConfig.getParameter<bool>("useVIDElectronID") : false),
+      hasEleVIDVetoIdMap_(false),
+      hasEleVIDLooseIdMap_(false),
+      hasEleVIDMediumIdMap_(false),
+      hasEleVIDTightIdMap_(false),
+      computeHIMVAId_(iConfig.existsAs<bool>("computeHIMVAId") ? iConfig.getParameter<bool>("computeHIMVAId") : false),
+      hasHIMVAScalarRho_(false),
+      hasHIMVARhoMaps_(false),
       hltConfig_(),
       hltConfigInit_(false),
       eventTriggerBits_(0),
@@ -72,6 +87,56 @@ HiOniaElectronAnalyzer::HiOniaElectronAnalyzer(const edm::ParameterSet& iConfig)
     const auto genTag = iConfig.getParameter<edm::InputTag>("genParticles");
     if (!genTag.label().empty()) {
       genParticleToken_ = consumes<reco::GenParticleCollection>(genTag);
+    }
+  }
+  if (useVIDElectronID_) {
+    if (iConfig.existsAs<edm::InputTag>("eleVIDVetoIdMap")) {
+      const auto idTag = iConfig.getParameter<edm::InputTag>("eleVIDVetoIdMap");
+      if (!idTag.label().empty()) {
+        eleVIDVetoIdMapToken_ = consumes<edm::ValueMap<bool> >(idTag);
+        hasEleVIDVetoIdMap_ = true;
+      }
+    }
+    if (iConfig.existsAs<edm::InputTag>("eleVIDLooseIdMap")) {
+      const auto idTag = iConfig.getParameter<edm::InputTag>("eleVIDLooseIdMap");
+      if (!idTag.label().empty()) {
+        eleVIDLooseIdMapToken_ = consumes<edm::ValueMap<bool> >(idTag);
+        hasEleVIDLooseIdMap_ = true;
+      }
+    }
+    if (iConfig.existsAs<edm::InputTag>("eleVIDMediumIdMap")) {
+      const auto idTag = iConfig.getParameter<edm::InputTag>("eleVIDMediumIdMap");
+      if (!idTag.label().empty()) {
+        eleVIDMediumIdMapToken_ = consumes<edm::ValueMap<bool> >(idTag);
+        hasEleVIDMediumIdMap_ = true;
+      }
+    }
+    if (iConfig.existsAs<edm::InputTag>("eleVIDTightIdMap")) {
+      const auto idTag = iConfig.getParameter<edm::InputTag>("eleVIDTightIdMap");
+      if (!idTag.label().empty()) {
+        eleVIDTightIdMapToken_ = consumes<edm::ValueMap<bool> >(idTag);
+        hasEleVIDTightIdMap_ = true;
+      }
+    }
+  }
+  if (computeHIMVAId_) {
+    hiMVAIdModel_ = std::make_unique<pat::XGBooster>(
+        iConfig.getParameter<edm::FileInPath>("hiMVAIdModel").fullPath());
+    for (int i = 0; i < 11; ++i) {
+      hiMVAIdModel_->addFeature(std::to_string(i));
+    }
+
+    const auto scalarRhoTag = iConfig.getParameter<edm::InputTag>("hiMVARho");
+    if (!scalarRhoTag.label().empty()) {
+      hiMVAScalarRhoToken_ = consumes<double>(scalarRhoTag);
+      hasHIMVAScalarRho_ = true;
+    }
+    const auto etaMapTag = iConfig.getParameter<edm::InputTag>("hiMVARhoEtaMap");
+    const auto rhoMapTag = iConfig.getParameter<edm::InputTag>("hiMVARhoMap");
+    if (!etaMapTag.label().empty() && !rhoMapTag.label().empty()) {
+      hiMVARhoEtaMapToken_ = consumes<std::vector<double> >(etaMapTag);
+      hiMVARhoMapToken_ = consumes<std::vector<double> >(rhoMapTag);
+      hasHIMVARhoMaps_ = true;
     }
   }
 
@@ -424,6 +489,56 @@ void HiOniaElectronAnalyzer::fillTriggerInfo(const edm::Event& iEvent) {
   triggerBits_ = eventTriggerBits_;
 }
 
+float HiOniaElectronAnalyzer::evaluateHIMVAId(const pat::Electron& ele, float rho) const {
+  if (!hiMVAIdModel_ || !std::isfinite(rho) || ele.gsfTrack().isNull())
+    return kInvalidFloat;
+
+  const auto ecalEnergy = ele.hasUserFloat("rawEcalEnergy") ? ele.userFloat("rawEcalEnergy") : ele.ecalEnergy();
+  const auto trackMomentum = ele.trackMomentumAtVtx().R();
+  const auto eOverPInv = (ecalEnergy > 0.f && trackMomentum > 0.f) ? (1.f / ecalEnergy - 1.f / trackMomentum) : kInvalidFloat;
+  if (!std::isfinite(eOverPInv))
+    return kInvalidFloat;
+
+  const std::vector<float> features{
+      static_cast<float>(std::abs(ele.eta())),
+      static_cast<float>(ele.phi()),
+      rho,
+      static_cast<float>(ele.sigmaIetaIeta()),
+      static_cast<float>(ele.deltaEtaSeedClusterTrackAtVtx()),
+      static_cast<float>(ele.deltaPhiSuperClusterTrackAtVtx()),
+      static_cast<float>(ele.dB(pat::Electron::PV2D)),
+      static_cast<float>(ele.dB(pat::Electron::PVDZ)),
+      static_cast<float>(ele.gsfTrack()->numberOfLostHits()),
+      static_cast<float>(eOverPInv),
+      static_cast<float>(ele.hcalOverEcalBc())};
+
+  return 1.f - hiMVAIdModel_->predict(features);
+}
+
+short HiOniaElectronAnalyzer::passHIMVAId(float mva, float cent, bool isEB, int wp) const {
+  if (!std::isfinite(mva) || mva == kInvalidFloat)
+    return kInvalidShort;
+
+  double cut = 10.;
+  const double cen = cent;
+  const auto cen2 = cen * cen;
+  const auto cen3 = cen * cen * cen;
+  if (wp == 95) {
+    cut = isEB ? -8.6895588483154620e-07 * cen3 + 0.00013933876005428234 * cen2 + -0.008619594547272720 * cen + 0.45763429913293496
+               : -1.4970873446950470e-06 * cen3 + 0.00024879582298806160 * cen2 + -0.015436599736040429 * cen + 0.72788786967830470;
+  } else if (wp == 90) {
+    cut = isEB ? -4.6614422355778817e-07 * cen3 + 8.0092208959414990e-05 * cen2 + -0.005222306985603681 * cen + 0.23094224803139338
+               : -1.3010247333840360e-06 * cen3 + 0.00021736111417101613 * cen2 + -0.013308168801268280 * cen + 0.51108687929103980;
+  } else if (wp == 85) {
+    cut = isEB ? -2.7396191468306490e-07 * cen3 + 4.7113855045057714e-05 * cen2 + -0.002967751640976904 * cen + 0.12148874341679987
+               : -8.3321554760551400e-07 * cen3 + 0.00014285719403057067 * cen2 + -0.009134790058710965 * cen + 0.34550384804492130;
+  } else if (wp == 80) {
+    cut = isEB ? -1.3961443236681390e-07 * cen3 + 2.3527418966464617e-05 * cen2 + -0.001472122698460129 * cen + 0.06641013597502561
+               : -5.0247362141513420e-07 * cen3 + 8.9424796689439320e-05 * cen2 + -0.006059630793483640 * cen + 0.23549473657009040;
+  }
+  return (mva < cut) ? 1 : 0;
+}
+
 void HiOniaElectronAnalyzer::fillRecoElectrons(const edm::Event& iEvent) {
   edm::Handle<pat::ElectronCollection> electrons;
   iEvent.getByToken(electronToken_, electrons);
@@ -436,6 +551,32 @@ void HiOniaElectronAnalyzer::fillRecoElectrons(const edm::Event& iEvent) {
   edm::Handle<reco::BeamSpot> beamSpot;
   iEvent.getByToken(beamSpotToken_, beamSpot);
   const math::XYZPoint beamSpotPos = beamSpot.isValid() ? beamSpot->position() : math::XYZPoint(0., 0., 0.);
+
+  edm::Handle<edm::ValueMap<bool> > vidVetoIdMap;
+  edm::Handle<edm::ValueMap<bool> > vidLooseIdMap;
+  edm::Handle<edm::ValueMap<bool> > vidMediumIdMap;
+  edm::Handle<edm::ValueMap<bool> > vidTightIdMap;
+  if (useVIDElectronID_) {
+    if (hasEleVIDVetoIdMap_)
+      iEvent.getByToken(eleVIDVetoIdMapToken_, vidVetoIdMap);
+    if (hasEleVIDLooseIdMap_)
+      iEvent.getByToken(eleVIDLooseIdMapToken_, vidLooseIdMap);
+    if (hasEleVIDMediumIdMap_)
+      iEvent.getByToken(eleVIDMediumIdMapToken_, vidMediumIdMap);
+    if (hasEleVIDTightIdMap_)
+      iEvent.getByToken(eleVIDTightIdMapToken_, vidTightIdMap);
+  }
+
+  edm::Handle<std::vector<double> > hiMVARhoEtaMap;
+  edm::Handle<std::vector<double> > hiMVARhoMap;
+  edm::Handle<double> hiMVAScalarRho;
+  if (computeHIMVAId_ && hasHIMVARhoMaps_) {
+    iEvent.getByToken(hiMVARhoEtaMapToken_, hiMVARhoEtaMap);
+    iEvent.getByToken(hiMVARhoMapToken_, hiMVARhoMap);
+  }
+  if (computeHIMVAId_ && hasHIMVAScalarRho_) {
+    iEvent.getByToken(hiMVAScalarRhoToken_, hiMVAScalarRho);
+  }
 
   const size_t nEle = electrons->size();
   Reco_ele_pt_.reserve(Reco_ele_pt_.size() + nEle);
@@ -550,9 +691,23 @@ void HiOniaElectronAnalyzer::fillRecoElectrons(const edm::Event& iEvent) {
     }
     Reco_ele_convVeto_[idx] = convVeto;
 
-    // MVA-based ID and Isolation from HIElectronInfoProducer
+    // MVA-based ID and Isolation from HIElectronInfoProducer-compatible inputs.
     Reco_ele_MVAIso_[idx] = ele.hasUserFloat("hiMVAIso") ? ele.userFloat("hiMVAIso") : kInvalidFloat;
     Reco_ele_MVAId_[idx] = ele.hasUserFloat("hiMVAId") ? ele.userFloat("hiMVAId") : kInvalidFloat;
+    if (Reco_ele_MVAId_[idx] == kInvalidFloat && computeHIMVAId_) {
+      float rho = kInvalidFloat;
+      if (hiMVAScalarRho.isValid()) {
+        rho = static_cast<float>(*hiMVAScalarRho);
+      } else if (hiMVARhoEtaMap.isValid() && hiMVARhoMap.isValid()) {
+        for (size_t i = 1; i < hiMVARhoEtaMap->size() && i - 1 < hiMVARhoMap->size(); ++i) {
+          if (ele.eta() >= hiMVARhoEtaMap->at(i - 1) && ele.eta() < hiMVARhoEtaMap->at(i)) {
+            rho = static_cast<float>(hiMVARhoMap->at(i - 1));
+            break;
+          }
+        }
+      }
+      Reco_ele_MVAId_[idx] = evaluateHIMVAId(ele, rho);
+    }
     
     Reco_ele_MVAIsoWP95_[idx] = ele.hasUserInt("hiMVAIsoWP95") ? ele.userInt("hiMVAIsoWP95") : kInvalidShort;
     Reco_ele_MVAIsoWP90_[idx] = ele.hasUserInt("hiMVAIsoWP90") ? ele.userInt("hiMVAIsoWP90") : kInvalidShort;
@@ -563,12 +718,40 @@ void HiOniaElectronAnalyzer::fillRecoElectrons(const edm::Event& iEvent) {
     Reco_ele_MVAIdWP90_[idx] = ele.hasUserInt("hiMVAIdWP90") ? ele.userInt("hiMVAIdWP90") : kInvalidShort;
     Reco_ele_MVAIdWP85_[idx] = ele.hasUserInt("hiMVAIdWP85") ? ele.userInt("hiMVAIdWP85") : kInvalidShort;
     Reco_ele_MVAIdWP80_[idx] = ele.hasUserInt("hiMVAIdWP80") ? ele.userInt("hiMVAIdWP80") : kInvalidShort;
+    if (Reco_ele_MVAId_[idx] != kInvalidFloat) {
+      const bool isEB = Reco_ele_isEB_[idx] == 1;
+      const float cent = centralityBin_ >= 0 ? static_cast<float>(centralityBin_) / 2.f : 0.f;
+      if (Reco_ele_MVAIdWP95_[idx] == kInvalidShort)
+        Reco_ele_MVAIdWP95_[idx] = passHIMVAId(Reco_ele_MVAId_[idx], cent, isEB, 95);
+      if (Reco_ele_MVAIdWP90_[idx] == kInvalidShort)
+        Reco_ele_MVAIdWP90_[idx] = passHIMVAId(Reco_ele_MVAId_[idx], cent, isEB, 90);
+      if (Reco_ele_MVAIdWP85_[idx] == kInvalidShort)
+        Reco_ele_MVAIdWP85_[idx] = passHIMVAId(Reco_ele_MVAId_[idx], cent, isEB, 85);
+      if (Reco_ele_MVAIdWP80_[idx] == kInvalidShort)
+        Reco_ele_MVAIdWP80_[idx] = passHIMVAId(Reco_ele_MVAId_[idx], cent, isEB, 80);
+    }
     
-    // Cut-based ID Working Points
-    Reco_ele_CutIdWP95_[idx] = ele.hasUserInt("hiCutIdWP95") ? ele.userInt("hiCutIdWP95") : kInvalidShort;
-    Reco_ele_CutIdWP90_[idx] = ele.hasUserInt("hiCutIdWP90") ? ele.userInt("hiCutIdWP90") : kInvalidShort;
-    Reco_ele_CutIdWP80_[idx] = ele.hasUserInt("hiCutIdWP80") ? ele.userInt("hiCutIdWP80") : kInvalidShort;
-    Reco_ele_CutIdWP70_[idx] = ele.hasUserInt("hiCutIdWP70") ? ele.userInt("hiCutIdWP70") : kInvalidShort;
+    // Official VID cut-based IDs: WP95=veto, WP90=loose, WP80=medium, WP70=tight.
+    Reco_ele_CutIdWP95_[idx] = kInvalidShort;
+    Reco_ele_CutIdWP90_[idx] = kInvalidShort;
+    Reco_ele_CutIdWP80_[idx] = kInvalidShort;
+    Reco_ele_CutIdWP70_[idx] = kInvalidShort;
+    if (useVIDElectronID_) {
+      const edm::Ptr<pat::Electron> elePtr(electrons, iEle);
+      if (vidVetoIdMap.isValid())
+        Reco_ele_CutIdWP95_[idx] = (*vidVetoIdMap)[elePtr] ? 1 : 0;
+      if (vidLooseIdMap.isValid())
+        Reco_ele_CutIdWP90_[idx] = (*vidLooseIdMap)[elePtr] ? 1 : 0;
+      if (vidMediumIdMap.isValid())
+        Reco_ele_CutIdWP80_[idx] = (*vidMediumIdMap)[elePtr] ? 1 : 0;
+      if (vidTightIdMap.isValid())
+        Reco_ele_CutIdWP70_[idx] = (*vidTightIdMap)[elePtr] ? 1 : 0;
+    } else {
+      Reco_ele_CutIdWP95_[idx] = ele.hasUserInt("hiCutIdWP95") ? ele.userInt("hiCutIdWP95") : kInvalidShort;
+      Reco_ele_CutIdWP90_[idx] = ele.hasUserInt("hiCutIdWP90") ? ele.userInt("hiCutIdWP90") : kInvalidShort;
+      Reco_ele_CutIdWP80_[idx] = ele.hasUserInt("hiCutIdWP80") ? ele.userInt("hiCutIdWP80") : kInvalidShort;
+      Reco_ele_CutIdWP70_[idx] = ele.hasUserInt("hiCutIdWP70") ? ele.userInt("hiCutIdWP70") : kInvalidShort;
+    }
     
     // Energy corrections
     Reco_ele_rawPt_[idx] = ele.hasUserFloat("rawPt") ? ele.userFloat("rawPt") : ele.pt();

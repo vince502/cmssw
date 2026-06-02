@@ -90,6 +90,7 @@ HiOniaAnalyzer::HiOniaAnalyzer(const edm::ParameterSet& iConfig)
   //now do whatever initialization is needed
   nEvents = 0;
   passedCandidates = 0;
+  currentEvent = nullptr;
 
   theRegions.push_back("All");
   theRegions.push_back("Barrel");
@@ -131,6 +132,19 @@ HiOniaAnalyzer::HiOniaAnalyzer(const edm::ParameterSet& iConfig)
       theTriggerNames.push_back(_sglTriggerPathNames.at(iTr - NTRIGGERS_DBL - 1));
     }
     std::cout << " Trigger " << iTr << "\t" << theTriggerNames[iTr] << std::endl;
+  }
+
+  triggerBitNames.reserve(nTrig);
+  triggerFullNames.reserve(nTrig);
+  triggerFilterNames.reserve(nTrig);
+  triggerBitIndices.reserve(nTrig);
+  triggerHLTIndices.reserve(nTrig);
+  for (unsigned int iTr = 1; iTr < NTRIGGERS; ++iTr) {
+    triggerBitNames.push_back(theTriggerNames.at(iTr));
+    triggerFullNames.push_back("");
+    triggerFilterNames.push_back("");
+    triggerBitIndices.push_back(iTr - 1);
+    triggerHLTIndices.push_back(-1);
   }
 
   if (_OneMatchedHLTMu >= (int)NTRIGGERS) {
@@ -195,6 +209,7 @@ HiOniaAnalyzer::~HiOniaAnalyzer() {
 
 void HiOniaAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   //   using namespace edm;
+  currentEvent = &iEvent;
   InitEvent();
   nEvents++;
   hStats->Fill(BIN_nEvents);
@@ -243,7 +258,7 @@ void HiOniaAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
   for (unsigned int iTr = 1; iTr < theTriggerNames.size(); iTr++) {
     if (mapTriggerNameToIntFired_[theTriggerNames.at(iTr)] == 3) {
-      HLTriggers += pow(2, iTr - 1);
+      HLTriggers |= (1ULL << (iTr - 1));
       hStats->Fill(iTr);  // event info
     }
     trigPrescale[iTr - 1] = mapTriggerNameToPrescaleFac_[theTriggerNames.at(iTr)];
@@ -515,6 +530,11 @@ void HiOniaAnalyzer::fillTreeMuon(const pat::Muon* muon, int iType, ULong64_t tr
     mapMuonMomToIndex_[FloatToIntkey(vMuon.Pt())] = Reco_mu_size;
 
     Reco_mu_trig[Reco_mu_size] = trigBits;
+    Reco_mu_MVAIso[Reco_mu_size] = muon->hasUserFloat("hiMVAIso") ? muon->userFloat("hiMVAIso") : -99.f;
+    Reco_mu_MVAIsoWP95[Reco_mu_size] = muon->hasUserInt("hiMVAIsoWP95") ? muon->userInt("hiMVAIsoWP95") : -1;
+    Reco_mu_MVAIsoWP90[Reco_mu_size] = muon->hasUserInt("hiMVAIsoWP90") ? muon->userInt("hiMVAIsoWP90") : -1;
+    Reco_mu_MVAIsoWP85[Reco_mu_size] = muon->hasUserInt("hiMVAIsoWP85") ? muon->userInt("hiMVAIsoWP85") : -1;
+    Reco_mu_MVAIsoWP80[Reco_mu_size] = muon->hasUserInt("hiMVAIsoWP80") ? muon->userInt("hiMVAIsoWP80") : -1;
 
     reco::TrackRef iTrack = muon->innerTrack();
     reco::TrackRef bestTrack = muon->muonBestTrack();
@@ -608,7 +628,7 @@ void HiOniaAnalyzer::fillTreeJpsi(int count) {
     ULong64_t trigBits = 0;
     for (unsigned int iTr = 1; iTr < NTRIGGERS; ++iTr) {
       if (isTriggerMatched[iTr]) {
-        trigBits += pow(2, iTr - 1);
+        trigBits |= (1ULL << (iTr - 1));
       }
     }
 
@@ -941,7 +961,24 @@ void HiOniaAnalyzer::fillRecoJpsi(int count, std::string trigName, std::string c
 
 void HiOniaAnalyzer::fillHistosAndDS(unsigned int theCat, const pat::CompositeCandidate* aJpsiCand) { return; };
 
+bool HiOniaAnalyzer::hasTriggerFilterMatch(const pat::Muon* muon, const std::string& filterLabel) const {
+  if (muon == nullptr || filterLabel.empty() || currentEvent == nullptr || !collTriggerResults.isValid())
+    return false;
+
+  for (const auto& triggerObject : muon->triggerObjectMatches()) {
+    auto unpackedObject = triggerObject;
+    unpackedObject.unpackFilterLabels(*currentEvent, *collTriggerResults);
+    if (unpackedObject.hasFilterLabel(filterLabel))
+      return true;
+  }
+  return false;
+}
+
 void HiOniaAnalyzer::checkTriggers(const pat::CompositeCandidate* aJpsiCand) {
+  for (unsigned int iTr = 1; iTr < NTRIGGERS; ++iTr) {
+    isTriggerMatched[iTr] = false;
+  }
+
   if (aJpsiCand == nullptr) {
     std::cout << "ERROR: 'aJpsiCand' pointer in checkTriggers is NULL ! Return now" << std::endl;
     return;
@@ -957,12 +994,15 @@ void HiOniaAnalyzer::checkTriggers(const pat::CompositeCandidate* aJpsiCand) {
 
   // Trigger passed
   for (unsigned int iTr = 1; iTr < NTRIGGERS; ++iTr) {
-    const auto& lastFilter = filterNameMap.at(theTriggerNames[iTr]);
-    const auto& mu1HLTMatchesFilter = muon1->triggerObjectMatchesByFilter(lastFilter);
-    const auto& mu2HLTMatchesFilter = muon2->triggerObjectMatchesByFilter(lastFilter);
+    if (mapTriggerNameToIntFired_[theTriggerNames[iTr]] != 3)
+      continue;
 
-    bool pass1 = !mu1HLTMatchesFilter.empty();
-    bool pass2 = !mu2HLTMatchesFilter.empty();
+    const auto& lastFilter = filterNameMap.at(theTriggerNames[iTr]);
+    if (lastFilter.empty())
+      continue;
+
+    bool pass1 = hasTriggerFilterMatch(muon1, lastFilter);
+    bool pass2 = hasTriggerFilterMatch(muon2, lastFilter);
 
     if (iTr > NTRIGGERS_DBL) {  // single triggers here
       isTriggerMatched[iTr] = pass1 || pass2;
@@ -983,6 +1023,7 @@ void HiOniaAnalyzer::checkTriggers(const pat::CompositeCandidate* aJpsiCand) {
 
 void HiOniaAnalyzer::InitEvent() {
   for (unsigned int iTr = 1; iTr < NTRIGGERS; ++iTr) {
+    isTriggerMatched[iTr] = false;
     alreadyFilled[iTr] = false;
   }
   HLTriggers = 0;
@@ -1264,11 +1305,15 @@ void HiOniaAnalyzer::fillRecoMuons(int iCent) {
 
         ULong64_t trigBits = 0;
         for (unsigned int iTr = 1; iTr < NTRIGGERS; ++iTr) {
-          const pat::TriggerObjectStandAloneCollection muHLTMatchesFilter =
-              muon->triggerObjectMatchesByFilter(filterNameMap.at(theTriggerNames[iTr]));
+          if (mapTriggerNameToIntFired_[theTriggerNames.at(iTr)] != 3)
+            continue;
+
+          const auto& filterName = filterNameMap.at(theTriggerNames[iTr]);
+          if (filterName.empty())
+            continue;
 
           // apparently matching by path gives false positives so we use matching by filter for all triggers for which we know the filter name
-          if (!muHLTMatchesFilter.empty()) {
+          if (hasTriggerFilterMatch(muon, filterName)) {
             std::string theLabel = theTriggerNames.at(iTr) + "_" + theCentralities.at(iCent);
 
             if (_fillHistos) {
@@ -1292,7 +1337,7 @@ void HiOniaAnalyzer::fillRecoMuons(int iCent) {
                   myRecoTrkMuonHistos->Fill(muon, "EndCap_" + theLabel);
               }
             }
-            trigBits += pow(2, iTr - 1);
+            trigBits |= (1ULL << (iTr - 1));
             if (iTr == 1)
               nL1DoubleMu0Muons++;
           }
@@ -1360,6 +1405,11 @@ void HiOniaAnalyzer::InitTree() {
   //myTree->Branch("nTrig", &nTrig, "nTrig/I");
   myTree->Branch("trigPrescale", trigPrescale, Form("trigPrescale[%d]/I", nTrig));
   myTree->Branch("HLTriggers", &HLTriggers, "HLTriggers/l");
+  myTree->Branch("triggerBitNames", &triggerBitNames);
+  myTree->Branch("triggerFullNames", &triggerFullNames);
+  myTree->Branch("triggerFilterNames", &triggerFilterNames);
+  myTree->Branch("triggerBitIndices", &triggerBitIndices);
+  myTree->Branch("triggerHLTIndices", &triggerHLTIndices);
 
   if ((_isHI || _isPA) && _SumETvariables) {
     myTree->Branch("SumET_HF", &SumET_HF, "SumET_HF/F");
@@ -1535,6 +1585,11 @@ void HiOniaAnalyzer::InitTree() {
     myTree->Branch("Reco_mu_L1_4mom_m", &Reco_mu_L1_4mom_m, 32000, 0);
   }
   myTree->Branch("Reco_mu_trig", Reco_mu_trig, "Reco_mu_trig[Reco_mu_size]/l");
+  myTree->Branch("Reco_mu_MVAIso", Reco_mu_MVAIso, "Reco_mu_MVAIso[Reco_mu_size]/F");
+  myTree->Branch("Reco_mu_MVAIsoWP95", Reco_mu_MVAIsoWP95, "Reco_mu_MVAIsoWP95[Reco_mu_size]/S");
+  myTree->Branch("Reco_mu_MVAIsoWP90", Reco_mu_MVAIsoWP90, "Reco_mu_MVAIsoWP90[Reco_mu_size]/S");
+  myTree->Branch("Reco_mu_MVAIsoWP85", Reco_mu_MVAIsoWP85, "Reco_mu_MVAIsoWP85[Reco_mu_size]/S");
+  myTree->Branch("Reco_mu_MVAIsoWP80", Reco_mu_MVAIsoWP80, "Reco_mu_MVAIsoWP80[Reco_mu_size]/S");
 
   if (!_theMinimumFlag) {
     myTree->Branch("Reco_mu_InTightAcc", Reco_mu_InTightAcc, "Reco_mu_InTightAcc[Reco_mu_size]/O");
@@ -1814,6 +1869,19 @@ void HiOniaAnalyzer::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetu
         filterNameMap.at(p.first) = m[j];
         break;
       }
+  }
+
+  for (unsigned int iTr = 1; iTr < NTRIGGERS; ++iTr) {
+    const auto bitIndex = iTr - 1;
+    const auto& triggerLabel = theTriggerNames.at(iTr);
+    triggerFullNames.at(bitIndex) = triggerNameMap.at(triggerLabel);
+    triggerFilterNames.at(bitIndex) = filterNameMap.at(triggerLabel);
+    triggerHLTIndices.at(bitIndex) = -1;
+    if (!triggerFullNames.at(bitIndex).empty()) {
+      const unsigned int hltIndex = hltConfig.triggerIndex(triggerFullNames.at(bitIndex));
+      if (hltIndex < hltConfig.size())
+        triggerHLTIndices.at(bitIndex) = static_cast<int>(hltIndex);
+    }
   }
   return;
 };

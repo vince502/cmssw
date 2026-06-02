@@ -13,6 +13,7 @@
 
 #include "CommonTools/Egamma/interface/ConversionTools.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
+#include "DataFormats/Common/interface/ValueMap.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/Candidate/interface/CompositeCandidate.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
@@ -34,6 +35,7 @@
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
+#include "PhysicsTools/XGBoost/interface/XGBooster.h"
 #include "HLTrigger/HLTcore/interface/HLTConfigProvider.h"
 
 class HiOniaElectronAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources, edm::one::WatchRuns> {
@@ -59,6 +61,8 @@ private:
   void fillRecoDielectrons(const edm::Event&);
   void fillGeneratorInfo(const edm::Event&);
 
+  float evaluateHIMVAId(const pat::Electron&, float) const;
+  short passHIMVAId(float, float, bool, int) const;
   std::string resolveTriggerName(const std::string& requested, const edm::TriggerNames&) const;
   int findElectronIndex(const TLorentzVector& candP4) const;
   std::string sanitizeLabel(const std::string& raw) const;
@@ -77,6 +81,13 @@ private:
   edm::EDGetTokenT<int> centralityBinToken_;
   edm::EDGetTokenT<reco::EvtPlaneCollection> evtPlaneToken_;
   edm::EDGetTokenT<reco::GenParticleCollection> genParticleToken_;
+  edm::EDGetTokenT<edm::ValueMap<bool> > eleVIDVetoIdMapToken_;
+  edm::EDGetTokenT<edm::ValueMap<bool> > eleVIDLooseIdMapToken_;
+  edm::EDGetTokenT<edm::ValueMap<bool> > eleVIDMediumIdMapToken_;
+  edm::EDGetTokenT<edm::ValueMap<bool> > eleVIDTightIdMapToken_;
+  edm::EDGetTokenT<double> hiMVAScalarRhoToken_;
+  edm::EDGetTokenT<std::vector<double> > hiMVARhoEtaMapToken_;
+  edm::EDGetTokenT<std::vector<double> > hiMVARhoMapToken_;
 
   // Configuration parameters
   std::vector<std::string> triggerPathNames_;
@@ -88,6 +99,14 @@ private:
   bool useEvtPlane_;
   bool fillTree_;
   bool fillHistos_;
+  bool useVIDElectronID_;
+  bool hasEleVIDVetoIdMap_;
+  bool hasEleVIDLooseIdMap_;
+  bool hasEleVIDMediumIdMap_;
+  bool hasEleVIDTightIdMap_;
+  bool computeHIMVAId_;
+  bool hasHIMVAScalarRho_;
+  bool hasHIMVARhoMaps_;
 
   // Trigger bookkeeping
   HLTConfigProvider hltConfig_;
@@ -97,6 +116,7 @@ private:
 
   // Services
   edm::Service<TFileService> fs_;
+  std::unique_ptr<pat::XGBooster> hiMVAIdModel_;
 
   // Output tree
   TTree* tree_;

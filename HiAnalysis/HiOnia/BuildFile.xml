@@ -2,8 +2,11 @@
 <use   name="FWCore/PluginManager"/>
 <use   name="FWCore/ParameterSet"/>
 <use   name="PhysicsTools/PatUtils"/>
+<use   name="PhysicsTools/XGBoost"/>
 <use   name="PhysicsTools/UtilAlgos"/>
 <use   name="PhysicsTools/Utilities"/>
+<use   name="DataFormats/Common"/>
+<use   name="DataFormats/Candidate"/>
 <use   name="DataFormats/HeavyIonEvent"/>
 <use   name="DataFormats/HLTReco"/>
 <use   name="HLTrigger/HLTcore"/>

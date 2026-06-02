@@ -182,9 +182,9 @@ bool HiOniaAnalyzer::checkCuts(const pat::CompositeCandidate* cand,
   std::string lastFilter = _OneMatchedHLTMu >= 0 ? filterNameMap.at(theTriggerNames[_OneMatchedHLTMu]) : "";
   if ((((this->*callFunc1)(muon1) && (this->*callFunc2)(muon2)) ||
        ((this->*callFunc1)(muon2) && (this->*callFunc2)(muon1))) &&
-      (!_applycuts || true) &&  //Add hard-coded cuts here if desired
-      ((_OneMatchedHLTMu == -1) || !muon1->triggerObjectMatchesByFilter(lastFilter).empty() ||
-       !muon2->triggerObjectMatchesByFilter(lastFilter).empty()))
+	      (!_applycuts || true) &&  //Add hard-coded cuts here if desired
+	      ((_OneMatchedHLTMu == -1) || hasTriggerFilterMatch(muon1, lastFilter) ||
+	       hasTriggerFilterMatch(muon2, lastFilter)))
     return true;
   else
     return false;
@@ -198,18 +198,18 @@ bool HiOniaAnalyzer::checkBcCuts(const pat::CompositeCandidate* cand,
                                  bool (HiOniaAnalyzer::*callFunc2)(const pat::Muon*),
                                  bool (HiOniaAnalyzer::*callFunc3)(const pat::Muon*)) {
   const auto& lastFilter = filterNameMap.at(theTriggerNames[(_OneMatchedHLTMu < 0) ? 0 : _OneMatchedHLTMu]);
-  const auto& mu1HLTMatchesFilter = muon1->triggerObjectMatchesByFilter(lastFilter);
-  const auto& mu2HLTMatchesFilter = muon2->triggerObjectMatchesByFilter(lastFilter);
-  const auto& mu3HLTMatchesFilter = muon3->triggerObjectMatchesByFilter(lastFilter);
+  const bool mu1HLTMatchesFilter = hasTriggerFilterMatch(muon1, lastFilter);
+  const bool mu2HLTMatchesFilter = hasTriggerFilterMatch(muon2, lastFilter);
+  const bool mu3HLTMatchesFilter = hasTriggerFilterMatch(muon3, lastFilter);
 
   if ((((this->*callFunc1)(muon1) && (this->*callFunc2)(muon2) && (this->*callFunc3)(muon3))
        //symmetrize, assuming arguments functions 2 and 3 are THE SAME !
        || ((this->*callFunc1)(muon2) && (this->*callFunc2)(muon1) && (this->*callFunc3)(muon3)) ||
        ((this->*callFunc1)(muon3) && (this->*callFunc2)(muon1) && (this->*callFunc3)(muon2))) &&
       (!_applycuts || true) &&  //Add hard-coded cuts here if desired
-      ((_OneMatchedHLTMu == -1) || (!mu1HLTMatchesFilter.empty() && !mu2HLTMatchesFilter.empty()) ||
-       (!mu1HLTMatchesFilter.empty() && !mu3HLTMatchesFilter.empty()) ||
-       (!mu2HLTMatchesFilter.empty() && !mu3HLTMatchesFilter.empty())))
+	      ((_OneMatchedHLTMu == -1) || (mu1HLTMatchesFilter && mu2HLTMatchesFilter) ||
+	       (mu1HLTMatchesFilter && mu3HLTMatchesFilter) ||
+	       (mu2HLTMatchesFilter && mu3HLTMatchesFilter)))
     return true;
   else
     return false;
@@ -397,13 +397,13 @@ bool HiOniaAnalyzer::checkDimuTrkCuts(const pat::CompositeCandidate* cand,
                                       bool (HiOniaAnalyzer::*callFunc2)(const pat::Muon*),
                                       bool (HiOniaAnalyzer::*callFunc3)(const reco::TrackRef)) {
   const auto& lastFilter = filterNameMap.at(theTriggerNames[(_OneMatchedHLTMu < 0) ? 0 : _OneMatchedHLTMu]);
-  const auto& mu1HLTMatchesFilter = muon1->triggerObjectMatchesByFilter(lastFilter);
-  const auto& mu2HLTMatchesFilter = muon2->triggerObjectMatchesByFilter(lastFilter);
+  const bool mu1HLTMatchesFilter = hasTriggerFilterMatch(muon1, lastFilter);
+  const bool mu2HLTMatchesFilter = hasTriggerFilterMatch(muon2, lastFilter);
 
   if ((((this->*callFunc1)(muon1) && (this->*callFunc2)(muon2) && (this->*callFunc3)(trk->track())) ||
        ((this->*callFunc1)(muon2) && (this->*callFunc2)(muon1) && (this->*callFunc3)(trk->track()))) &&
       (!_applycuts || true) &&  //Add hard-coded cuts here if desired
-      ((_OneMatchedHLTMu == -1) || (!mu1HLTMatchesFilter.empty() && !mu2HLTMatchesFilter.empty())))
+	      ((_OneMatchedHLTMu == -1) || (mu1HLTMatchesFilter && mu2HLTMatchesFilter)))
     return true;
   else
     return false;

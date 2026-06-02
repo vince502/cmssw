@@ -2,14 +2,14 @@ import FWCore.ParameterSet.Config as cms
 import importlib.util
 import os
 
-# Wrapper on top of hioniaanalyzer_MuonElectron_ppRef2024_DATA_cfg.py
+# Wrapper on top of hioniaanalyzer_MuonElectron_PbPb2026_DATA_cfg.py
 # Dataset mode: DoubleMuon PD
 # - event filter requires DoubleMu trigger paths
 # - disable ee+l channels (EEMu, EEE)
 # No EDM output module to avoid InvalidReference persistence errors.
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-base_cfg = os.path.join(this_dir, "hioniaanalyzer_MuonElectron_ppRef2024_DATA_cfg.py")
+base_cfg = os.path.join(this_dir, "hioniaanalyzer_MuonElectron_PbPb2026_DATA_cfg.py")
 
 spec = importlib.util.spec_from_file_location("hionia_base_cfg", base_cfg)
 base = importlib.util.module_from_spec(spec)

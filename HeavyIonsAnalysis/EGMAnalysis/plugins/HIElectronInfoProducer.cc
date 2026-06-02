@@ -269,8 +269,8 @@ void pat::HIElectronInfoProducer::produce(edm::StreamID, edm::Event& iEvent, con
     double skPFChIso(0.), skPFNeuIso(0.), skPFPhoIso(0.);
     for (const auto& cand : selPFCands) {
 	  const auto& [pt, eta, phi, id, ieta, skThr] = cand;
-	  const auto dR = reco::deltaR(electron.eta(), electron.phi(), eta, phi);
-	  if (dR >= rVeto_ && dR <= rCone_) {
+	  const auto dR2 = reco::deltaR2(electron.eta(), electron.phi(), eta, phi);
+	  if (dR2 >= rVeto_ * rVeto_ && dR2 <= rCone_ * rCone_) {
         (id == 5 ? pfNeuIso : (id == 4 ? pfPhoIso : pfChIso)) += pt;
 	    (id == 5 ? skPFNeuIso : (id == 4 ? skPFPhoIso : skPFChIso)) += pt * (pt > skThr);
       }

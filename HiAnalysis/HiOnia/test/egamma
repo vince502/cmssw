@@ -1,0 +1,108 @@
+Cut-based Electron Identification for Run3¶
+Overview¶
+The cut-based electron identification for Run3 provides a set of working points that use rectangular cuts on kinematic and isolation variables to select electrons. This is the standard approach for electron identification in CMS and offers excellent performance for most physics analyses.
+
+Approval presentation
+
+Working Points¶
+The Run3 cut-based electron ID provides several working points with different signal efficiency and background rejection:
+
+Veto: (~95%) Highest signal efficiency, moderate background rejection. Use this working point for lepton veto or counting.
+Loose: (~90%) Balanced efficiency and background rejection. Use this working point when backgrounds are rather low.
+Medium: (~80%) Lower signal efficiency, better background rejection. This is a good starting point for generic measurements involving W or Z.
+Tight: (~70%) Lowest signal efficiency, highest background rejection. Use this working point for measurements where backgrounds are a serious problem.
+Note that for measurements focusing on high energy (~1+ TeV) electrons, a dedicated HEEP ID is provided see a dedicated link on the EgammaIDRecipesRun2 twiki. HEEP ID for Run3 has not been developed yet, till then Run2 HEEP ID mentioned above can be used and expected to provide reasonable performance. In case you find worse performance using the Run2 HEEP ID till we mention a dedicated HEEP ID for Run3 please report to us.
+
+Implementation in CMSSW¶
+The cut-based electron ID is implemented in CMSSW using the VID (Video ID) framework. The recommended usage is through the official CMSSW implementation rather than manual implementation of the cuts.
+
+Cut Variables¶
+The cut-based ID uses the following variables:
+
+σ_{iηiη}: Shower shape in η direction
+|Δη|: Track-supercluster matching in η
+|Δφ|: Track-supercluster matching in φ
+H/E: Ratio of hadronic to electromagnetic energy
+Relative isolation: Combined relative isolation
+|1/E - 1/p|: Consistency between track momentum and supercluster energy
+Missing hits: Number of missing hits in the tracker
+Conversion rejection: Veto on photon conversions
+122X-tuned selection, barrel cuts (|eta supercluster| ≤ 1.479)¶
+Variable	Veto (122X)	Loose (122X)	Medium (122X)	Tight (122X)	Access in CMSSW
+full5x5_sigmaIetaIeta <	0.0117	0.0107	0.0103	0.0101	CMSSW
+abs(dEtaSeed) <	0.0071	0.00691	0.00481	0.00411	CMSSW
+abs(dPhiIn) <	0.208	0.175	0.127	0.116	CMSSW
+H/E <	0.05+1.28/E_sc+0.0422ρ/E_sc	0.05+1.28/E_sc+0.0422ρ/E_sc	0.0241+1.28/E_sc+0.0422ρ/E_sc	0.02+1.16/E_sc+0.0422ρ/E_sc	CMSSW
+relIsoWithEA <	0.406+0.535/p_T	0.194+0.535/p_T	0.0837+0.535/p_T	0.0388+0.535/p_T	CMSSW
+abs(1/E - 1/p) <	0.178	0.138	0.0966	0.023	CMSSW
+expected missing inner hits ≤	2	1	1	1	CMSSW
+pass conversion veto	yes	yes	yes	yes	CMSSW
+122X-tuned selection, endcap cuts (|eta supercluster| > 1.479)¶
+Variable	Veto (122X)	Loose (122X)	Medium (122X)	Tight (122X)	Access in CMSSW
+full5x5_sigmaIetaIeta <	0.0298	0.0275	0.0272	0.027	CMSSW
+abs(dEtaSeed) <	0.0173	0.0121	0.00951	0.00938	CMSSW
+abs(dPhiIn) <	0.234	0.228	0.221	0.164	CMSSW
+H/E <	0.05+2.3/E_sc+0.262ρ/E_sc	0.05+2.3/E_sc+0.262ρ/E_sc	0.05+2.3/E_sc+0.262ρ/E_sc	0.02+0.5/E_sc+0.262ρ/E_sc	CMSSW
+relIsoWithEA <	0.342+0.519/p_T	0.184+0.519/p_T	0.0741+0.519/p_T	0.0544+0.519/p_T	CMSSW](https://github.com/cms-sw/cmssw/blob/CMSSW_9_4_X/RecoEgamma/ElectronIdentification/plugins/cuts/GsfEleRelPFIsoScaledCut.cc#L57)
+abs(1/E - 1/p) <	0.137	0.127	0.111	0.018	CMSSW
+expected missing inner hits ≤	3	1	1	1	CMSSW
+pass conversion veto	yes	yes	yes	yes	CMSSW](https://github.com/cms-sw/cmssw/blob/CMSSW_9_4_X/RecoEgamma/ElectronIdentification/plugins/cuts/GsfEleConversionVetoCut.cc#L68-L69)
+## Scale Factors					
+Data/MC scale factors are provided for each working point and should be applied when using simulated events. The scale factors are available in JSON format and can be accessed through the correction library.
+
+Example Usage¶
+import correctionlib
+evaluator = correctionlib.CorrectionSet.from_file("electron.json")
+
+# Get scale factor
+sf = evaluator["Electron-ID-SF"].evaluate("2022Re-recoBCD", "sf", "Medium", eta, pt)
+Validation and Performance¶
+The cut-based electron ID has been extensively validated using:
+
+Tag-and-probe studies with Z→ee events
+Electron efficiency measurements in data and MC
+Background rejection studies using QCD samples
+Systematic uncertainty evaluations
+Recommendations¶
+Use the official VID implementation in CMSSW
+Apply appropriate data/MC scale factors
+Consider systematic uncertainties in your analysis
+For custom selections, validation with the EGM POG is required
+Configuration Example¶
+# Add to your analysis configuration
+process.load("RecoEgamma.ElectronIdentification.ElectronIDValueMapProducer_cfi")
+process.load("RecoEgamma.ElectronIdentification.heepIdVarValueMapProducer_cfi")
+
+# Load the cut-based electron ID
+from PhysicsTools.SelectorUtils.tools.vid_id_tools import *
+dataFormat = DataFormat.MiniAOD
+switchOnVIDElectronIdProducer(process, dataFormat)
+
+# Define which IDs to run  
+my_id_modules = [
+    'RecoEgamma.ElectronIdentification.Identification.cutBasedElectronID_RunIII_V1_cff'
+]
+
+# Add them to the VID producer
+for idmod in my_id_modules:
+    setupAllVIDIdsInModule(process,idmod,setupVIDElectronSelection)
+Usage in Analysis¶
+Accessing ID Results¶
+# In your analyzer
+edm::Handle<edm::ValueMap<bool>> veto_id_decisions;
+edm::Handle<edm::ValueMap<bool>> loose_id_decisions;
+edm::Handle<edm::ValueMap<bool>> medium_id_decisions;
+edm::Handle<edm::ValueMap<bool>> tight_id_decisions;
+
+event.getByToken(eleVetoIdMapToken_, veto_id_decisions);
+event.getByToken(eleLooseIdMapToken_, loose_id_decisions);
+event.getByToken(eleMediumIdMapToken_, medium_id_decisions);
+event.getByToken(eleTightIdMapToken_, tight_id_decisions);
+
+// For each electron
+const auto el = electrons->ptrAt(i);
+bool isVeto = (*veto_id_decisions)[el];
+bool isLoose = (*loose_id_decisions)[el];
+bool isMedium = (*medium_id_decisions)[el];
+bool isTight = (*tight_id_decisions)[el];
+

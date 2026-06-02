@@ -149,6 +149,7 @@ private:
   void fillTreeDimuTrk(int count);
 
   void checkTriggers(const pat::CompositeCandidate* aJpsiCand);
+  bool hasTriggerFilterMatch(const pat::Muon* muon, const std::string& filterLabel) const;
   void hltReport(const edm::Event& iEvent, const edm::EventSetup& iSetup);
 
   long int FloatToIntkey(float v);
@@ -178,6 +179,11 @@ private:
   std::vector<std::string> theSign;
   std::map<std::string, std::string> triggerNameMap;
   std::map<std::string, std::string> filterNameMap;
+  std::vector<std::string> triggerBitNames;
+  std::vector<std::string> triggerFullNames;
+  std::vector<std::string> triggerFilterNames;
+  std::vector<int> triggerBitIndices;
+  std::vector<int> triggerHLTIndices;
 
   HLTConfigProvider hltConfig;
   bool hltConfigInit;
@@ -408,6 +414,11 @@ private:
   bool Reco_mu_isTightCutBased[Max_mu_size];
   bool Reco_mu_InTightAcc[Max_mu_size];  // Is in the tight acceptance for global muons
   bool Reco_mu_InLooseAcc[Max_mu_size];  // Is in the loose acceptance for global muons
+  float Reco_mu_MVAIso[Max_mu_size];
+  Short_t Reco_mu_MVAIsoWP95[Max_mu_size];
+  Short_t Reco_mu_MVAIsoWP90[Max_mu_size];
+  Short_t Reco_mu_MVAIsoWP85[Max_mu_size];
+  Short_t Reco_mu_MVAIsoWP80[Max_mu_size];
 
   int Reco_mu_nPixValHits[Max_mu_size];      // Number of valid pixel hits in sta muons
   int Reco_mu_nMuValHits[Max_mu_size];       // Number of valid muon hits in sta muons
@@ -513,6 +524,7 @@ private:
   edm::Handle<GenEventInfoProduct> genInfo;
 
   edm::Handle<edm::TriggerResults> collTriggerResults;
+  const edm::Event* currentEvent;
 
   // data members
   edm::EDGetTokenT<pat::MuonCollection> _patMuonToken;
