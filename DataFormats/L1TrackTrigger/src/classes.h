@@ -12,6 +12,9 @@
 
 #include "DataFormats/Common/interface/Wrapper.h"
 #include "DataFormats/Common/interface/DetSetVectorNew.h"
+#include "DataFormats/L1TrackTrigger/interface/GTTStubCountWord.h"
+#include "DataFormats/L1TrackTrigger/interface/GTTStubCounts.h"
+#include "DataFormats/L1TrackTrigger/interface/GTTStubPrimitive.h"
 #include "DataFormats/L1TrackTrigger/interface/TTTypes.h"
 #include "DataFormats/L1TrackTrigger/interface/TTDTC.h"
 #include "DataFormats/Common/interface/RefVector.h"

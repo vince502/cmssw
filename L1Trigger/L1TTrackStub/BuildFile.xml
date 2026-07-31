@@ -1,0 +1,4 @@
+<use name="DataFormats/L1TrackTrigger"/>
+<export>
+  <lib name="1"/>
+</export>

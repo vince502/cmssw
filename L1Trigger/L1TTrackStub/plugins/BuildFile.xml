@@ -1,0 +1,23 @@
+<library file="GTTStub[CDPU]*.cc" name="L1TriggerL1TTrackStubPlugins">
+  <flags EDM_PLUGIN="1"/>
+  <use name="DataFormats/Common"/>
+  <use name="DataFormats/L1TrackTrigger"/>
+  <use name="FWCore/Framework"/>
+  <use name="FWCore/ParameterSet"/>
+  <use name="FWCore/Utilities"/>
+  <use name="L1Trigger/DemonstratorTools"/>
+</library>
+
+<library file="GTTStubValidation.cc" name="L1TriggerL1TTrackStubValidationPlugins">
+  <flags EDM_PLUGIN="1"/>
+  <use name="CommonTools/UtilAlgos"/>
+  <use name="DataFormats/Common"/>
+  <use name="DataFormats/L1TrackTrigger"/>
+  <use name="DataFormats/L1Trigger"/>
+  <use name="FWCore/Framework"/>
+  <use name="FWCore/ParameterSet"/>
+  <use name="FWCore/ServiceRegistry"/>
+  <use name="FWCore/Utilities"/>
+  <use name="L1Trigger/DemonstratorTools"/>
+  <use name="root"/>
+</library>

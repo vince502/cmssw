@@ -47,5 +47,16 @@
   <class name="edm::Wrapper<tt::TTTrackRefMap>"/>
   <class name="TTDTC"/>
   <class name="edm::Wrapper<TTDTC>"/>
+  <class name="l1t::GTTStubCounts" ClassVersion="3">
+    <version ClassVersion="3" checksum="2918506014"/>
+  </class>
+  <class name="edm::Wrapper<l1t::GTTStubCounts>"/>
+  <class name="l1t::GTTStubCountWord" ClassVersion="3">
+    <version ClassVersion="3" checksum="919836097"/>
+  </class>
+  <class name="edm::Wrapper<l1t::GTTStubCountWord>"/>
+  <class name="l1t::GTTStubPrimitive" ClassVersion="3">
+    <version ClassVersion="3" checksum="2797272524"/>
+  </class>
+  <class name="edm::Wrapper<l1t::GTTStubPrimitive>"/>
 </lcgdict>
-

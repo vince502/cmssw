@@ -1,0 +1,17 @@
+<bin file="testGTTStubLinkCodec.cc" name="testGTTStubLinkCodec">
+  <use name="DataFormats/L1TrackTrigger"/>
+  <use name="L1Trigger/DemonstratorTools"/>
+  <use name="catch2"/>
+</bin>
+
+<library file="GTTStubSyntheticPlugins.cc" name="L1TriggerL1TTrackStubTestPlugins">
+  <flags EDM_PLUGIN="1"/>
+  <use name="DataFormats/L1TrackTrigger"/>
+  <use name="DataFormats/L1Trigger"/>
+  <use name="FWCore/Framework"/>
+  <use name="FWCore/ParameterSet"/>
+  <use name="FWCore/Utilities"/>
+  <use name="L1Trigger/L1TTrackStub"/>
+</library>
+
+<test name="testGTTStubSynthetic" command="cmsRun ${LOCALTOP}/src/L1Trigger/L1TTrackStub/test/runGTTStubSynthetic_cfg.py"/>

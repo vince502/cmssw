@@ -8,3 +8,8 @@
     <use name="DataFormats/TestObjects"/>
   </library>
 </environment>
+
+<bin file="testGTTStubCountWord.cc" name="testGTTStubCountWord">
+  <use name="DataFormats/L1TrackTrigger"/>
+  <use name="catch2"/>
+</bin>
