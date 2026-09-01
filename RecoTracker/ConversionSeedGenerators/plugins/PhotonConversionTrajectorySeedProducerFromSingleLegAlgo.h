@@ -22,7 +22,7 @@
 #include "CombinedHitPairGeneratorForPhotonConversion.h"
 
 #include "RecoTracker/TkSeedGenerator/interface/ClusterChecker.h"
-#include "RecoTracker/TkTrackingRegions/interface/GlobalTrackingRegionProducerFromBeamSpot.h"
+#include "RecoTracker/TkTrackingRegions/interface/TrackingRegionProducer.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 
 #include <sstream>
@@ -54,7 +54,7 @@ private:
 
   std::unique_ptr<CombinedHitPairGeneratorForPhotonConversion> theHitsGenerator;
   std::unique_ptr<SeedForPhotonConversion1Leg> theSeedCreator;
-  std::unique_ptr<GlobalTrackingRegionProducerFromBeamSpot> theRegionProducer;
+  std::unique_ptr<TrackingRegionProducer> theRegionProducer;
 
   ClusterChecker theClusterCheck;
   bool theSilentOnClusterCheck;

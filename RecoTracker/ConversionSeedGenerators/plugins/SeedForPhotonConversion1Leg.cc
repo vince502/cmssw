@@ -136,7 +136,7 @@ const TrajectorySeed* SeedForPhotonConversion1Leg::buildSeed(TrajectorySeedColle
   edm::OwnVector<TrackingRecHit> seedHits;
 
   const TrackingRecHit* hit = nullptr;
-  for (unsigned int iHit = 0; iHit < hits.size() && iHit < 1; iHit++) {
+  for (unsigned int iHit = 0; iHit < hits.size() && (theMaxSeedHits == 0 || iHit < theMaxSeedHits); ++iHit) {
     hit = hits[iHit];
     TrajectoryStateOnSurface state =
         (iHit == 0) ? propagator->propagate(fts, tracker->idToDet(hit->geographicalId())->surface())

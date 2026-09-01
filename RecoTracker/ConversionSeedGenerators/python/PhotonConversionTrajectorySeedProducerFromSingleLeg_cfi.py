@@ -14,6 +14,9 @@ photonConvTrajSeedFromSingleLeg  = cms.EDProducer("PhotonConversionTrajectorySee
                                                   maxDZSigmas          = cms.double(10.),
                                                   maxNumSelVtx         = cms.uint32(2),
                                                   applyTkVtxConstraint = cms.bool(True),
+                                                  applyHFTowerSumCut   = cms.bool(False),
+                                                  centrality           = cms.InputTag("hiCentralityForConversionStep"),
+                                                  maxHFTowerSum        = cms.double(1.0e9),
                                                   
                                                   DoxcheckSeedCandidates = cms.bool(False),
                                                   OrderedHitsFactoryPSet = cms.PSet(
@@ -37,6 +40,7 @@ photonConvTrajSeedFromSingleLeg  = cms.EDProducer("PhotonConversionTrajectorySee
                                                   SeedCreatorPSet = cms.PSet(
                                                       ComponentName = cms.string('SeedForPhotonConversion1Leg'),
                                                       SeedMomentumForBOFF = cms.double(5.0),
+                                                      maxSeedHits = cms.uint32(1),
                                                       propagator = cms.string('PropagatorWithMaterial'),
                                                       TTRHBuilder = cms.string('WithTrackAngle')
                                                       )

@@ -329,6 +329,42 @@ trackingPhase2PU140.toModify(convTrackCandidates,
     phase2clustersToSkip = 'convClusters'
 )
 
+# Opt-in Run-3 PbPb single-leg recovery. Without this modifier the pp_on_AA
+# vtxMinDoF=999999 setting and every other release default remain unchanged.
+from Configuration.ProcessModifiers.conversionStepSingleLegHF10to100_cff import conversionStepSingleLegHF10to100
+(pp_on_AA & conversionStepSingleLegHF10to100).toModify(
+    photonConvTrajSeedFromSingleLeg,
+    vtxMinDoF = 4.0,
+    ClusterCheckPSet = dict(MaxNumberOfStripClusters = 1000000),
+    OrderedHitsFactoryPSet = dict(maxHitPairsPerTrackAndGenerator = 10),
+    SeedCreatorPSet = dict(maxSeedHits = 2),
+    RegionFactoryPSet = dict(
+        RegionPSet = dict(
+            minOriginR = 10.0,
+            originRScaling4BigEvts = False,
+            ptMin = 0.20,
+            useFixedError = False,
+            useMultipleScattering = True,
+        ),
+    ),
+    applyHFTowerSumCut = True,
+    centrality = "hiCentralityForConversionStep",
+    maxHFTowerSum = 3562.41,
+)
+(pp_on_AA & conversionStepSingleLegHF10to100).toModify(
+    convCkfTrajectoryBuilder,
+    lostHitPenalty = 15.0,
+)
+(pp_on_AA & conversionStepSingleLegHF10to100).toModify(
+    convStepChi2Est,
+    MaxChi2 = 16.0,
+    nSigma = 3.0,
+)
+(pp_on_AA & conversionStepSingleLegHF10to100).toModify(
+    convTrackCandidates,
+    numHitsForSeedCleaner = 2,
+)
+
 import TrackingTools.TrackFitters.RungeKuttaFitters_cff
 convStepFitterSmoother = TrackingTools.TrackFitters.RungeKuttaFitters_cff.KFFittingSmootherWithOutliersRejectionAndRK.clone(
     ComponentName = 'convStepFitterSmoother',
@@ -405,6 +441,13 @@ ConvStepTask = cms.Task( convClusters
                          , convStepSelector
                          #+ Conv2Step #full quad-seeding sequence
                          )
+
+from RecoHI.HiCentralityAlgos.HiCentralityForConversionStep_cfi import hiCentralityForConversionStep
+(pp_on_AA & conversionStepSingleLegHF10to100).toModify(
+    ConvStepTask,
+    lambda task: task.add(hiCentralityForConversionStep),
+)
+
 ConvStep = cms.Sequence( ConvStepTask ) 
 
 

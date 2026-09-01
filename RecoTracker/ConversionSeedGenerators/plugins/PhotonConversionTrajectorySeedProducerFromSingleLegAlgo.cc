@@ -1,6 +1,7 @@
 #include "PhotonConversionTrajectorySeedProducerFromSingleLegAlgo.h"
 #include "FWCore/Utilities/interface/isFinite.h"
 #include "FWCore/Utilities/interface/Likely.h"
+#include "RecoTracker/TkTrackingRegions/interface/TrackingRegionProducerFactory.h"
 
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -17,8 +18,7 @@ PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::PhotonConversionTraject
     : theHitsGenerator(new CombinedHitPairGeneratorForPhotonConversion(
           conf.getParameter<edm::ParameterSet>("OrderedHitsFactoryPSet"), iC)),
       theSeedCreator(new SeedForPhotonConversion1Leg(conf.getParameter<edm::ParameterSet>("SeedCreatorPSet"), iC)),
-      theRegionProducer(
-          new GlobalTrackingRegionProducerFromBeamSpot(conf.getParameter<edm::ParameterSet>("RegionFactoryPSet"), iC)),
+      theRegionProducer(nullptr),
       theClusterCheck(conf.getParameter<edm::ParameterSet>("ClusterCheckPSet"), iC),
       theSilentOnClusterCheck(conf.getParameter<edm::ParameterSet>("ClusterCheckPSet")
                                   .getUntrackedParameter<bool>("silentClusterCheck", false)),
@@ -29,6 +29,10 @@ PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::PhotonConversionTraject
       _countSeedTracks(0),
       _primaryVtxInputTag(conf.getParameter<edm::InputTag>("primaryVerticesTag")),
       _beamSpotInputTag(conf.getParameter<edm::InputTag>("beamSpotInputTag")) {
+  const auto regionFactoryPSet = conf.getParameter<edm::ParameterSet>("RegionFactoryPSet");
+  theRegionProducer = TrackingRegionProducerFactory::get()->create(
+      regionFactoryPSet.getParameter<std::string>("ComponentName"), regionFactoryPSet, edm::ConsumesCollector(iC));
+
   token_vertex = iC.consumes<reco::VertexCollection>(_primaryVtxInputTag);
   token_bs = iC.consumes<reco::BeamSpot>(_beamSpotInputTag);
   token_refitter = iC.consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("TrackRefitter"));
