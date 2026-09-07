@@ -3,7 +3,7 @@ from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_('General')
-config.General.requestName = 'NonPrompt_Psi1SJet_VertexCompsoite_MCOniaPrivate_ppref_17Feb_v1'
+config.General.requestName = 'NonPrompt_Psi1SJet_VertexCompsoite_MCPythia8_ppref_16Jul_v2'
 config.General.workArea = 'crab_project'
 config.General.transferOutputs = True
 config.General.transferLogs = False
@@ -15,10 +15,12 @@ config.JobType.maxMemoryMB = 2500
 config.JobType.numCores = 1
 
 config.section_('Data')
-config.Data.inputDataset = '/NonPromptJPsi_pThat2_PbPb5p3TeV/bputra-PPRef_NonPromptJPsi_PbPb5p3TeV_CMSSW_141X_mcRun3_2024_realistic_ppRef5TeV_v7_20250123_RECOPAT-3d41c4bd01f1795c62fe47a112c1c01b/USER'
-config.Data.inputDBS = 'phys03'
+config.Data.inputDataset = '/BToNonPromptJPsiToMuMu_inclusive_TuneCP5_5p36TeV_pythia8-evtgen/RunIIIpp5p36Winter24MiniAOD-141X_mcRun3_2024_realistic_ppRef5TeV_v7-v2/MINIAODSIM'
+#config.Data.inputDBS = 'phys03'
+config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
-config.Data.unitsPerJob = 10
+config.Data.unitsPerJob = 1
+config.Data.allowNonValidInputDataset = True
 config.Data.totalUnits = -1
 
 config.Data.publication = True

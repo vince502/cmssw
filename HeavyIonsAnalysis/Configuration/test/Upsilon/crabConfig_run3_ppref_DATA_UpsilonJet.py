@@ -3,15 +3,14 @@ from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_('General')
-config.General.requestName = 'JspiJetEEC_VertexCompsoite_DoubleMu0to4_ppref_16Jan2026_v1'
+config.General.requestName = 'Upsilon_OniaTree_DoubleMu6to14_AllMu2_ppref_16May25_v1'
 config.General.workArea = 'crab_project'
 config.General.transferOutputs = True
 config.General.transferLogs = False
 
 config.section_('JobType')
 config.JobType.pluginName = 'Analysis'
-#config.JobType.psetName = 'forest_miniAOD_run3_ppref_DATA_OniaJet.py'
-config.JobType.psetName = 'forest_miniAOD_run3_ppref_DATA_OniaJet2.py'
+config.JobType.psetName = 'forest_miniAOD_run3_ppref_DATA_Upsilon.py'
 config.JobType.maxMemoryMB = 2500
 config.JobType.numCores = 1
 
@@ -21,19 +20,20 @@ config.Data.outputPrimaryDataset = 'PPRefDoubleMuonAll'
 config.Data.userInputFiles = open('dbmu2024J').readlines()
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
-config.Data.unitsPerJob = 1
-config.Data.totalUnits = 500
+config.Data.unitsPerJob = 4
+config.Data.totalUnits = 100
 
-config.Data.publication = True
+config.Data.publication = False
 #config.Data.ignoreLocality = True
 
 config.Data.outputDatasetTag = config.General.requestName
 #config.Data.outLFNDirBase = '/store/user/soohwan/%s' % (config.Data.outputDatasetTag)
-#config.Data.outLFNDirBase = '/store/user/soohwan/Run3_2024/MC/%s' % (config.Data.outputDatasetTag)
-config.Data.outLFNDirBase = '/store/group/phys_heavyions/soohwan/Analysis/%s' % (config.Data.outputDatasetTag)
+# config.Data.outLFNDirBase = '/store/user/soohwan/Run3_2024/MC/%s' % (config.Data.outputDatasetTag)
+config.Data.outLFNDirBase = '/store/user/soohwan/Run3_2024/Data/%s' % (config.Data.outputDatasetTag)
+# config.Data.outLFNDirBase = '/store/group/phys_heavyions/soohwan/Analysis/%s' % (config.Data.outputDatasetTag)
 
 config.section_('Site')
 config.Data.ignoreLocality = False
 #config.Site.storageSite = 'T2_US_Vanderbilt'
-config.Site.whitelist = ['T2_CH_CERN']
-config.Site.storageSite = 'T2_CH_CERN'
+# config.Site.storageSite = 'T2_CH_CERN'
+config.Site.storageSite = 'T3_KR_KNU'

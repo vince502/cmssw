@@ -57,7 +57,7 @@ process.source = cms.Source("PoolSource",
 
 # Number of events we want to process, -1 = all events
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(-1)
+    input = cms.untracked.int32(1000)
 )
 
 #####################################################################################
@@ -181,11 +181,12 @@ oniaTreeAnalyzer(process,
 
 # Tracker or GLB is chosen
 process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string(
-    "(2.5 < mass && mass < 5.0) && \
+    "(2.4 < mass && mass < 5.0) && \
     charge == 0 && pt > 4.0 && \
+    abs(rapidity) < 2.4 && \
     abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25 && \
-    daughter('muon1').isSoftMuon() && \
-    daughter('muon2').isSoftMuon() && \
+    daughter('muon1').muonID('TMOneStationTight') && \
+    daughter('muon2').muonID('TMOneStationTight') && \
     daughter('muon1').isPFMuon() && \
     daughter('muon2').isPFMuon() \
     "
@@ -444,7 +445,7 @@ process.jpsiJets = cms.Sequence(
     # process.ak8PFXpatJets *
     # process.dynGroomedGenJets *
     #process.dynGroomedPatJets *
-    process.ak3PFJetAnalyzer*
+    #process.ak3PFJetAnalyzer*
     process.ak4PFJetAnalyzer
     # process.ak8PFJetAnalyzer
 )
@@ -515,8 +516,15 @@ process.ottana_new.jetCompareOnlyNonMuons = cms.untracked.bool(True)
 process.ottana_new.jetInclDimuon = cms.untracked.bool(True)
 process.ottana_new.jetNames = cms.vstring("ak3PFXpatJets", "ak4PFXpatJets")
 
+#########################
+# EEC Analyzer
+#########################
+process.load('HeavyIonsAnalysis.EventAnalysis.eecAnalyzer_cfi')
+process.eecAnalyzer.jpsiSrc = cms.InputTag("onia2MuMuPatGlbGlb")
+process.eecAnalyzer.pfCandidateSrc = cms.InputTag("packedPFCandidates")
+process.eecAnalyzer.vertexSrc = cms.InputTag("offlineSlimmedPrimaryVertices")
 
-process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb +  process.onia2MuMuPatGlbGlbFilter + process.generalOttCandidatesNew + process.jpsiJets + process.ottana_new + process.hionia)
+process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb +  process.onia2MuMuPatGlbGlbFilter + process.generalOttCandidatesNew + process.jpsiJets + process.ottana_new + process.hionia + process.eecAnalyzer)
 #process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb+ process.hionia + process.jpsiJets )
 
 process.schedule = cms.Schedule( process.jpsiJetsPath)
@@ -528,3 +536,5 @@ process.output = cms.OutputModule("PoolOutputModule",
 )
 process.output_path = cms.EndPath(process.output)
 #process.schedule.append( process.output_path )
+
+process.source.lumisToProcess = LumiList.LumiList(filename = '/eos/user/c/cmsdqm/www/CAF/certification/Collisions24/Cert_Collisions2024_ppref_387474_387721_Muon.json').getVLuminosityBlockRange()

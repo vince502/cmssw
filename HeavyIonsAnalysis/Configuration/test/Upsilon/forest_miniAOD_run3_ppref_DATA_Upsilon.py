@@ -28,7 +28,8 @@ process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
 #        '/store/data/Run2024J/PPRefHardProbes4/MINIAOD/PromptReco-v1/000/387/570/00000/c855cc0a-2470-4978-acbb-e4618979cf0e.root'
 #        'file:/afs/cern.ch/work/s/soohwan/private/Analysis/General2024Analysis/CMSSW_14_1_4_patch1/src/VertexCompositeAnalysis/VertexCompositeProducer/test/3be8f20e-6df1-4678-baed-b3c65b5ac756.root',
-#        'file:/eos/home-s/soohwan/store/DataRun3/2024/ppRef/DoubleMuon0/run387696/1028d78e-6237-4bc3-ab45-c77494763e00.root',
+
+    # 'file:/eos/home-s/soohwan/store/DataRun3/2024/ppRef/060df347-423a-446b-9e63-ebc8730a3ba9.root',
 '/store/data/Run2024J/PPRefDoubleMuon0/MINIAOD/PromptReco-v1/000/387/696/00000/1817e6b2-c106-47bc-a105-3fe4c9142048.root',
 #'/store/data/Run2024J/PPRefDoubleMuon0/MINIAOD/PromptReco-v1/000/387/696/00000/42d5456d-5863-4a72-b80e-64ef7851c206.root',
 #'/store/data/Run2024J/PPRefDoubleMuon0/MINIAOD/PromptReco-v1/000/387/696/00000/71cb6085-452f-48a9-891b-659985118537.root',
@@ -95,7 +96,7 @@ process.source.lumisToProcess = LumiList.LumiList(filename = '/eos/user/c/cmsdqm
 #####################################################################################
 
 process.TFileService = cms.Service("TFileService",
-    fileName = cms.string("HiForestMiniAOD2.root"))
+    fileName = cms.string("HiForestMiniAOD_Upsilon.root"))
 
 #####################################################################################
 # Additional Reconstruction and Analysis: Main Body
@@ -105,6 +106,7 @@ process.TFileService = cms.Service("TFileService",
 # Jets
 #############################
 process.load("HeavyIonsAnalysis.JetAnalysis.ak4PFJetSequence_ppref_data_cff")
+
 #####################################################################################
 
 ############################
@@ -170,7 +172,8 @@ from HiAnalysis.HiOnia.oniaTreeAnalyzer_cff import oniaTreeAnalyzer
 oniaTreeAnalyzer(process,
                  muonTriggerList= triggerList,
                  HLTProName="HLT",
-                 muonSelection="GlbOrTrk", 
+                #  muonSelection="GlbTrk", 
+                 muonSelection="All", 
                  L1Stage=2, 
                  isMC=False, 
                  pdgID=443, 
@@ -179,22 +182,14 @@ oniaTreeAnalyzer(process,
                  OnlySingleMuons=False
 )
 
-# Tracker or GLB is chosen
-process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string(
-    "(2.5 < mass && mass < 5.0) && \
-    charge == 0 && pt > 4.0 && \
-    abs(daughter('muon1').innerTrack.dz - daughter('muon2').innerTrack.dz) < 25 && \
-    daughter('muon1').isSoftMuon() && \
-    daughter('muon2').isSoftMuon() && \
-    daughter('muon1').isPFMuon() && \
-    daughter('muon2').isPFMuon() \
-    "
-    )
-process.onia2MuMuPatGlbGlb.LateDimuonSel         = cms.string("userFloat(\"vProb\")>0.01")
+process.onia2MuMuPatGlbGlb.dimuonSelection       = cms.string("(6 < mass && mass < 14)  && pt > 0")
+process.onia2MuMuPatGlbGlb.lowerPuritySelection       = cms.string("pt>2 && abs(eta) < 2.4")
+process.onia2MuMuPatGlbGlb.LateDimuonSel         = cms.string("userFloat(\"vProb\")>0.000")
+
 process.hionia.primaryVertexTag = "unpackedTracksAndVertices"
 process.hionia.CentralitySrc    = cms.InputTag("hiCentrality")
 process.hionia.CentralityBinSrc = cms.InputTag("centralityBin","HFtowers")
-# process.hionia.muonLessPV       = cms.bool(False)
+process.hionia.muonLessPV       = cms.bool(False)
 process.hionia.SumETvariables   = cms.bool(False)
 process.hionia.applyCuts        = cms.bool(False)
 process.hionia.AtLeastOneCand   = cms.bool(False)
@@ -215,11 +210,11 @@ process.load("RecoHI.HiJetAlgos.PFCandCompositeProducer_cfi")
 #process.pfCandComposites.pfCandTag    = cms.InputTag('particleFlowNoHF')
 process.pfCandComposites.pfCandTag    = cms.InputTag('packedPFCandidates')
 process.pfCandComposites.replaceOniaMM = True
+#process.pfCandComposites.massOnia = 3.096900 # J/psi
+process.pfCandComposites.massOnia = 3.686097 # psi(2S)
 process.pfCandComposites.compositeTag = cms.InputTag("onia2MuMuPatGlbGlb")
-#process.pfCandComposites.compositeTag = cms.InputTag("OttCandPatCandidate")
 process.pfCandComposites.jpsiTrigFilter = cms.string('hltL1fL1sDoubleMu0L1Filtered0PPRef')
 process.onia2MuMuPatGlbGlb.addMuonlessPrimaryVertex = False
-
 
 from HeavyIonsAnalysis.JetAnalysis.clusterJetsFromMiniAOD_cff import setupPprefJets
 
@@ -290,7 +285,8 @@ process.pprimaryVertexFilter = cms.Path(process.primaryVertexFilter)
 addR2Jets = False
 addR3Jets = True
 addR4Jets = True
-addR8Jets = True
+addR5Jets = True
+addR8Jets = False
 
 if addR2Jets or addR3Jets or addR4Jets or addR8Jets:
     process.load("HeavyIonsAnalysis.JetAnalysis.extraJets_cff")
@@ -303,7 +299,6 @@ if addR2Jets or addR3Jets or addR4Jets or addR8Jets:
         process.ak2PFpatJetCorrFactors.primaryVertices = "offlineSlimmedPrimaryVertices"
         process.load("HeavyIonsAnalysis.JetAnalysis.candidateBtaggingMiniAOD_cff")
         process.ak2PFJetAnalyzer = process.ak4PFJetAnalyzer.clone(jetTag = "ak2PFpatJets", jetName = 'ak2PF', genjetTag = "ak2GenJetsNoNu")
-        process.ak2PFpatJets.jetIDMap = 'ak2JetID'
         process.forest += process.jetsR2 * process.ak2PFJetAnalyzer
 
     if addR3Jets :
@@ -314,7 +309,6 @@ if addR2Jets or addR3Jets or addR4Jets or addR8Jets:
         process.ak3PFJets.src = 'pfCandComposites'
         process.load("HeavyIonsAnalysis.JetAnalysis.candidateBtaggingMiniAOD_cff")
         process.ak3PFJetAnalyzer = process.ak4PFJetAnalyzer.clone(jetTag = "ak3PFpatJets", jetName = 'ak3PF', genjetTag = "ak3GenJetsNoNu")
-        process.ak3PFpatJets.jetIDMap = 'ak3JetID'
         process.forest += process.jetsR3 * process.ak3PFJetAnalyzer
 
     if addR4Jets :
@@ -329,6 +323,19 @@ if addR2Jets or addR3Jets or addR4Jets or addR8Jets:
         process.ak4PFJetAnalyzer.jetName = 'ak04PF'
         process.ak4PFJetAnalyzer.doSubEvent = False # Need to disable this, since there is some issue with the gen jet constituents. More debugging needed is want to use constituents.
         process.forest += process.jetsR4 * process.ak4PFJetAnalyzer
+    if addR5Jets :
+        # Recluster using an alias "0" in order not to get mixed up with the default AK4 collections
+        process.jetsR5 = cms.Sequence()
+        setupPprefJets('ak5PF', process.jetsR5, process, isMC = 0, radius = 0.50, JECTag = 'AK5PF')
+        process.ak5PFpatJetCorrFactors.levels = ['L2Relative', 'L3Absolute']
+        process.ak5PFpatJetCorrFactors.primaryVertices = "offlineSlimmedPrimaryVertices"
+        process.ak5PFJets.src = 'pfCandComposites'
+        process.load("HeavyIonsAnalysis.JetAnalysis.candidateBtaggingMiniAOD_cff")
+        process.ak5PFJetAnalyzer = process.ak4PFJetAnalyzer.clone(jetTag = "ak5PFpatJets", jetName = 'ak5PF', genjetTag = "ak5GenJetsNoNu")
+        process.ak5PFJetAnalyzer.jetTag = 'ak5PFpatJets'
+        process.ak5PFJetAnalyzer.jetName = 'ak5PF'
+        process.ak5PFJetAnalyzer.doSubEvent = False # Need to disable this, since there is some issue with the gen jet constituents. More debugging needed is want to use constituents.
+        process.forest += process.jetsR5 * process.ak5PFJetAnalyzer
 
     if addR8Jets :
         process.jetsR8 = cms.Sequence()
@@ -338,7 +345,6 @@ if addR2Jets or addR3Jets or addR4Jets or addR8Jets:
         process.ak8PFJets.src = 'pfCandComposites'
         process.load("HeavyIonsAnalysis.JetAnalysis.candidateBtaggingMiniAOD_cff")
         process.ak8PFJetAnalyzer = process.ak4PFJetAnalyzer.clone(jetTag = "ak8PFpatJets", jetName = 'ak8PF', genjetTag = "ak8GenJetsNoNu")
-        process.ak8PFpatJets.jetIDMap = 'ak8JetID'
         process.forest += process.jetsR8 * process.ak8PFJetAnalyzer
 
 else:
@@ -368,90 +374,59 @@ process.dynGroomedPatJets.constitSrc = cms.InputTag("pfCandComposites")
 
 
 
-process.ak4PFXpatJets = cms.EDFilter("PatJetXSelector",
-                                     src = cms.InputTag("ak04PFpatJets"),
-                                     cut = cms.string("pt > 0.0 && abs(eta()) < 2.")
-                                     )
+#process.ak4PFXpatJets = cms.EDFilter("PatJetXSelector",
+#                                     src = cms.InputTag("ak04PFpatJets"),
+#                                     cut = cms.string("pt > 0.0 && abs(rapidity()) < 3.")
+#                                     )
+#
+#process.ak5PFXpatJets = cms.EDFilter("PatJetXSelector",
+#                                     src = cms.InputTag("ak05PFpatJets"),
+#                                     cut = cms.string("pt > 0.0 && abs(rapidity()) < 3.")
+#                                     )
+#
+#process.jetsR4.remove(process.ak4PFJetAnalyzer)
+#process.ak4PFJetAnalyzer.jetTag = "ak4PFXpatJets"
+## process.ak4PFJetAnalyzer.doCandidateBtagging = False
+#process.ak4PFJetAnalyzer.doSubJets = False
+#process.ak4PFJetAnalyzer.doSubJetsNew = True
+#process.ak4PFJetAnalyzer.jetName = 'ak04PF'
+#process.ak4PFJetAnalyzer.doSubEvent = False 
+#process.ak4PFJetAnalyzer.groomedJets = cms.untracked.InputTag("dynGroomedPatJets")
+#process.ak4PFJetAnalyzer.groomedGenJets = cms.untracked.InputTag("dynGroomedGenJets")
+#process.ak4PFJetAnalyzer.genjetTag = "ak4GenJetsNoNu"
+#process.ak4PFJetAnalyzer.doGenSubJets = False
 
-process.jetsR4.remove(process.ak4PFJetAnalyzer)
-process.ak4PFJetAnalyzer.jetTag = "ak4PFXpatJets"
-# process.ak4PFJetAnalyzer.doCandidateBtagging = False
-process.ak4PFJetAnalyzer.doSubJets = False
-process.ak4PFJetAnalyzer.doSubJetsNew = True
-process.ak4PFJetAnalyzer.jetName = 'ak04PF'
-process.ak4PFJetAnalyzer.doSubEvent = False 
-process.ak4PFJetAnalyzer.groomedJets = cms.untracked.InputTag("dynGroomedPatJets")
-process.ak4PFJetAnalyzer.groomedGenJets = cms.untracked.InputTag("dynGroomedGenJets")
-process.ak4PFJetAnalyzer.genjetTag = "ak4GenJetsNoNu"
-process.ak4PFJetAnalyzer.doGenSubJets = False
 
+# Kine cut
 process.ak04PFJets.jetPtMin = 0.
 process.ak4PFJetAnalyzer.jetPtMin = 0.
 
-process.ak3PFXpatJets = cms.EDFilter("PatJetXSelector",
-                                     src = cms.InputTag("ak3PFpatJets"),
-                                     cut = cms.string("pt > 0.0 && abs(eta()) < 2.")
-                                     )
-
-process.jetsR3.remove(process.ak3PFJetAnalyzer)
-process.ak3PFJetAnalyzer.jetTag = "ak3PFXpatJets"
-# process.ak3PFJetAnalyzer.doCandidateBtagging = False
-process.ak3PFJetAnalyzer.doSubJets = False
-process.ak3PFJetAnalyzer.doSubJetsNew = True
-process.ak3PFJetAnalyzer.jetName = 'ak03PF'
-process.ak3PFJetAnalyzer.doSubEvent = False 
-process.ak3PFJetAnalyzer.groomedJets = cms.untracked.InputTag("dynGroomedPatJets")
-process.ak3PFJetAnalyzer.groomedGenJets = cms.untracked.InputTag("dynGroomedGenJets")
-process.ak3PFJetAnalyzer.genjetTag = "ak3GenJetsNoNu"
-process.ak3PFJetAnalyzer.doGenSubJets = False
-
-process.ak3PFJets.jetPtMin = 0.
-process.ak3PFJetAnalyzer.jetPtMin = 0.
-
-process.ak8PFXpatJets = cms.EDFilter("PatJetXSelector",
-                                     src = cms.InputTag("ak8PFpatJets"),
-                                     cut = cms.string("pt > 0.0 && abs(eta()) < 2.")
-                                     )
-
-process.jetsR8.remove(process.ak8PFJetAnalyzer)
-process.ak8PFJetAnalyzer.jetTag = "ak8PFXpatJets"
-# process.ak8PFJetAnalyzer.doCandidateBtagging = False
-process.ak8PFJetAnalyzer.doSubJets = False
-process.ak8PFJetAnalyzer.doSubJetsNew = True
-process.ak8PFJetAnalyzer.jetName = 'ak08PF'
-process.ak8PFJetAnalyzer.doSubEvent = False 
-process.ak8PFJetAnalyzer.groomedJets = cms.untracked.InputTag("dynGroomedPatJets")
-process.ak8PFJetAnalyzer.groomedGenJets = cms.untracked.InputTag("dynGroomedGenJets")
-process.ak8PFJetAnalyzer.genjetTag = "ak8GenJetsNoNu"
-process.ak8PFJetAnalyzer.doGenSubJets = False
-
-process.ak8PFJets.jetPtMin = 0.
-process.ak8PFJetAnalyzer.jetPtMin = 0.
+process.ak5PFJets.jetPtMin = 0.
+process.ak5PFJetAnalyzer.jetPtMin = 0.
 
 process.jpsiJets = cms.Sequence(
     # process.particleFlowNoHF * 
     # process.hiSignalGenParticles *
-    process.hiEvtAnalyzer *
     process.pfCandComposites *
     # process.allPartons *
     # process.mergedGenParticles *
     # process.genParticlesForJets *
-    process.jetsR3 *
+    # process.jetsR3 *
     process.jetsR4 *
-    # process.jetsR8 *
-    process.ak3PFXpatJets *
-    process.ak4PFXpatJets *
+    # process.jetsR5 *
+    # process.ak4PFXpatJets *
+    # process.ak5PFXpatJets *
     # process.ak8PFXpatJets *
     # process.dynGroomedGenJets *
-    #process.dynGroomedPatJets *
-    process.ak3PFJetAnalyzer*
-    process.ak4PFJetAnalyzer
-    # process.ak8PFJetAnalyzer
+    # process.dynGroomedPatJets *
+    # process.ak3PFJetAnalyzer *
+    process.ak4PFJetAnalyzer 
+    # process.ak5PFJetAnalyzer
 )
 
 import HLTrigger.HLTfilters.hltHighLevel_cfi
 process.hltHI = HLTrigger.HLTfilters.hltHighLevel_cfi.hltHighLevel.clone()
-process.hltHI.HLTPaths = ["HLT_PPRefL*DoubleMu*_v*","HLT_PPRefL*SingleMu*_v*"]
+process.hltHI.HLTPaths = ["HLT_PPRefL*DoubleMu0_v*","HLT_PPRefL*SingleMu*_v*"]
 process.hltHI.throw = False
 process.hltHI.andOr = True
 process.oniaTreeAna.replace(process.patMuonSequence, process.primaryVertexFilter * process.hltHI * process.patMuonSequence )
@@ -466,35 +441,20 @@ process.generalOttCandidatesNew.trackRecoAlgorithm = cms.InputTag('unpackedTrack
 process.generalOttCandidatesNew.usePixelTracks = cms.bool(False)
 process.generalOttCandidatesNew.pixelTracks = cms.InputTag('unpackedPixelTracks')
 
-
-process.generalOttCandidatesNew.batTrkPtSumCut = cms.double(0.0)
-process.generalOttCandidatesNew.batTrkEtaDiffCut = cms.double(100.0)
-process.generalOttCandidatesNew.batTkChi2Cut = cms.double(10000)
+process.generalOttCandidatesNew.batTrkPtSumCut = cms.double(0.1)
+process.generalOttCandidatesNew.batTrkEtaDiffCut = cms.double(2.4)
+process.generalOttCandidatesNew.batTkChi2Cut = cms.double(3)
 process.generalOttCandidatesNew.batTkNhitsCut = cms.int32(0)
-process.generalOttCandidatesNew.batTkPtErrCut = cms.double(0.10)
-process.generalOttCandidatesNew.batTkPtCut = cms.double(0.10)
+process.generalOttCandidatesNew.batTkPtErrCut = cms.double(0.1)
+process.generalOttCandidatesNew.batTkPtCut = cms.double(0.20)
 process.generalOttCandidatesNew.alphaCut = cms.double(999.0)
 process.generalOttCandidatesNew.alpha2DCut = cms.double(999.0)
-process.generalOttCandidatesNew.bPtCut = cms.double(6.5)
-process.generalOttCandidatesNew.bVtxChiProbCut = cms.double(0.005)
-process.generalOttCandidatesNew.mPiKCutMin = cms.double(0.0)
-process.generalOttCandidatesNew.mPiKCutMax = cms.double(40.0)
-process.generalOttCandidatesNew.bMassCut = cms.double(7)
-process.generalOttCandidatesNew.bQMassCut = cms.double(333)
-process.generalOttCandidatesNew.bOniaWindow = cms.vdouble(5.2, 0.2, 0.4, 0.4)
-process.generalOttCandidatesNew.trk1cosPhiCut = cms.double(0.7)
-process.generalOttCandidatesNew.trk2cosPhiCut = cms.double(0.7)
-process.generalOttCandidatesNew.trk12cosPhiCut = cms.double(0.5)
-process.generalOttCandidatesNew.trk1dRCut = cms.double(1.0)
-process.generalOttCandidatesNew.trk2dRCut = cms.double(1.0)
-process.generalOttCandidatesNew.trk12dRCut = cms.double(1.5)
-process.generalOttCandidatesNew.oniapTCut = cms.double(3.0)
-process.generalOttCandidatesNew.trk1pTCut = cms.double(0.1)
-process.generalOttCandidatesNew.trk2pTCut = cms.double(0.1)
-
-#process.load("VertexCompositeAnalysis.VertexCompositeProducer.VertexToPatCompositeCandidateConverter_cfi")
-#process.OttCandPatCandidate = process.VertexToPatCompositeCandidateConverter.clone()
-#process.OttCandPatCandidate.src = cms.InputTag("generalOttCandidatesNew")
+process.generalOttCandidatesNew.bPtCut = cms.double(0.0)
+process.generalOttCandidatesNew.bVtxChiProbCut = cms.double(0.010)
+process.generalOttCandidatesNew.bQMassCut = cms.double(0.3)
+process.generalOttCandidatesNew.bOniaMass = cms.vdouble([3.096])
+process.generalOttCandidatesNew.bOniaWindow = cms.vdouble([999.0]) # This is wrong in cpp
+process.generalOttCandidatesNew.bMassCut = cms.double(5)
 
 process.load("VertexCompositeAnalysis.VertexCompositeAnalyzer.ottanalyzer_tree_cff")
 process.ottana_new = process.ottana.clone()
@@ -503,20 +463,15 @@ process.ottana_new.TrackCollection = cms.untracked.InputTag('unpackedTracksAndVe
 process.ottana_new.doRecoNtuple = True
 process.ottana_new.PID = 20443
 
-process.ottana_new.threeProngDecay = True 
-process.ottana_new.balancedTree = False 
+process.ottana_new.threeProngDecay = False
 process.ottana_new.PID_dau1 = 443
-#process.ottana_new.PID_dau2 = 113
-process.ottana_new.PID_dau2 = -211
-process.ottana_new.PID_dau3 = 211
+process.ottana_new.PID_dau2 = 113
 
-process.ottana_new.doJetConstituentCompare = cms.untracked.bool(True)
-process.ottana_new.jetCompareOnlyNonMuons = cms.untracked.bool(True)
-process.ottana_new.jetInclDimuon = cms.untracked.bool(True)
-process.ottana_new.jetNames = cms.vstring("ak3PFXpatJets", "ak4PFXpatJets")
-
-
-process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb +  process.onia2MuMuPatGlbGlbFilter + process.generalOttCandidatesNew + process.jpsiJets + process.ottana_new + process.hionia)
+# Name is Jpsi but it's for upsilon y'a know
+# process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.generalOttCandidatesNew + process.jpsiJets + process.ottana_new + process.hionia)
+# No ott here for now
+#process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.generalOttCandidatesNew + process.jpsiJets + process.hionia)
+process.jpsiJetsPath = cms.Path( process.hiEvtAnalyzer + process.patMuonSequence+process.onia2MuMuPatGlbGlb + process.hionia)
 #process.jpsiJetsPath = cms.Path( process.patMuonSequence+process.onia2MuMuPatGlbGlb+ process.hionia + process.jpsiJets )
 
 process.schedule = cms.Schedule( process.jpsiJetsPath)
@@ -526,5 +481,7 @@ process.output = cms.OutputModule("PoolOutputModule",
    #fileName = cms.untracked.string("/eos/cms/store/group/phys_heavyions/soohwan/Run3_2024/ppRef_2024/output2.root"),
    fileName = cms.untracked.string("output2.root"),
 )
-process.output_path = cms.EndPath(process.output)
+#process.output_path = cms.EndPath(process.output)
 #process.schedule.append( process.output_path )
+
+process.SimpleMemoryCheck = cms.Service("SimpleMemoryCheck",ignoreTotal = cms.untracked.int32(1) )
