@@ -51,7 +51,6 @@ egamma_lowPt_exclusive.toModify(gedGsfElectronsTmp, applyPreselection = False)
 
 
 # Activate the Egamma PFID dnn only for Run3
-from Configuration.Eras.Modifier_run3_common_cff import run3_common
 run3_common.toModify(gedGsfElectronsTmp.EleDNNPFid,
     enabled = True
 )
