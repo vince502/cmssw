@@ -329,6 +329,41 @@ trackingPhase2PU140.toModify(convTrackCandidates,
     phase2clustersToSkip = 'convClusters'
 )
 
+# Run-3 heavy-ion single-leg recovery, limited by the event HF tower sum.
+from Configuration.Eras.Modifier_run3_common_cff import run3_common
+(pp_on_AA & run3_common).toModify(
+    photonConvTrajSeedFromSingleLeg,
+    vtxMinDoF = 4.0,
+    ClusterCheckPSet = dict(MaxNumberOfStripClusters = 1000000),
+    OrderedHitsFactoryPSet = dict(maxHitPairsPerTrackAndGenerator = 10),
+    SeedCreatorPSet = dict(maxSeedHits = 2),
+    RegionFactoryPSet = dict(
+        RegionPSet = dict(
+            minOriginR = 10.0,
+            originRScaling4BigEvts = False,
+            ptMin = 0.20,
+            useFixedError = False,
+            useMultipleScattering = True,
+        ),
+    ),
+    applyHFTowerSumCut = True,
+    centrality = "hiCentralityForConversionStep",
+    maxHFTowerSum = 5300.0,
+)
+(pp_on_AA & run3_common).toModify(
+    convCkfTrajectoryBuilder,
+    lostHitPenalty = 15.0,
+)
+(pp_on_AA & run3_common).toModify(
+    convStepChi2Est,
+    MaxChi2 = 16.0,
+    nSigma = 3.0,
+)
+(pp_on_AA & run3_common).toModify(
+    convTrackCandidates,
+    numHitsForSeedCleaner = 2,
+)
+
 import TrackingTools.TrackFitters.RungeKuttaFitters_cff
 convStepFitterSmoother = TrackingTools.TrackFitters.RungeKuttaFitters_cff.KFFittingSmootherWithOutliersRejectionAndRK.clone(
     ComponentName = 'convStepFitterSmoother',
@@ -405,6 +440,13 @@ ConvStepTask = cms.Task( convClusters
                          , convStepSelector
                          #+ Conv2Step #full quad-seeding sequence
                          )
+
+from RecoHI.HiCentralityAlgos.HiCentralityForConversionStep_cfi import hiCentralityForConversionStep
+(pp_on_AA & run3_common).toModify(
+    ConvStepTask,
+    lambda task: task.add(hiCentralityForConversionStep),
+)
+
 ConvStep = cms.Sequence( ConvStepTask ) 
 
 

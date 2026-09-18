@@ -32,7 +32,8 @@ public:
         theTrackerToken(iC.esConsumes()),
         thePropagatorToken(iC.esConsumes(edm::ESInputTag("", cfg.getParameter<std::string>("propagator")))),
         theTTRHBuilderToken(iC.esConsumes(edm::ESInputTag("", cfg.getParameter<std::string>("TTRHBuilder")))),
-        theBOFFMomentum(cfg.getParameter<double>("SeedMomentumForBOFF")) {}
+        theBOFFMomentum(cfg.getParameter<double>("SeedMomentumForBOFF")),
+        theMaxSeedHits(cfg.existsAs<unsigned int>("maxSeedHits") ? cfg.getParameter<unsigned int>("maxSeedHits") : 1) {}
 
   //dtor
   ~SeedForPhotonConversion1Leg() {}
@@ -75,6 +76,7 @@ protected:
   edm::ESGetToken<Propagator, TrackingComponentsRecord> thePropagatorToken;
   edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> theTTRHBuilderToken;
   double theBOFFMomentum;
+  unsigned int theMaxSeedHits;
 
   std::stringstream* pss;
   PrintRecoObjects po;

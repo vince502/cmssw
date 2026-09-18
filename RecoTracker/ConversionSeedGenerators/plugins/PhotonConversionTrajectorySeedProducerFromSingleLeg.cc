@@ -8,6 +8,7 @@
 #include "DataFormats/Common/interface/Handle.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/ESHandle.h"
+#include "DataFormats/HeavyIonEvent/interface/Centrality.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "PhotonConversionTrajectorySeedProducerFromSingleLegAlgo.h"
@@ -26,17 +27,32 @@ public:
 private:
   std::string _newSeedCandidates;
   PhotonConversionTrajectorySeedProducerFromSingleLegAlgo* _theFinder;
+  bool _applyHFTowerSumCut;
+  edm::EDGetTokenT<reco::Centrality> _centralityToken;
+  double _maxHFTowerSum;
 };
 
 PhotonConversionTrajectorySeedProducerFromSingleLeg::PhotonConversionTrajectorySeedProducerFromSingleLeg(
     const edm::ParameterSet& conf)
-    : _newSeedCandidates(conf.getParameter<std::string>("newSeedCandidates")) {
+    : _newSeedCandidates(conf.getParameter<std::string>("newSeedCandidates")),
+      _applyHFTowerSumCut(conf.getParameter<bool>("applyHFTowerSumCut")),
+      _centralityToken(_applyHFTowerSumCut
+                           ? consumes<reco::Centrality>(conf.getParameter<edm::InputTag>("centrality"))
+                           : edm::EDGetTokenT<reco::Centrality>()),
+      _maxHFTowerSum(conf.getParameter<double>("maxHFTowerSum")) {
   _theFinder = new PhotonConversionTrajectorySeedProducerFromSingleLegAlgo(conf, consumesCollector());
   produces<TrajectorySeedCollection>(_newSeedCandidates);
 }
 
 void PhotonConversionTrajectorySeedProducerFromSingleLeg::produce(edm::Event& ev, const edm::EventSetup& es) {
   auto result = std::make_unique<TrajectorySeedCollection>();
+
+  if (_applyHFTowerSumCut) {
+    if (ev.get(_centralityToken).EtHFtowerSum() >= _maxHFTowerSum) {
+      ev.put(std::move(result), _newSeedCandidates);
+      return;
+    }
+  }
 
   _theFinder->find(ev, es, *result);
   result->shrink_to_fit();
