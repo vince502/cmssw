@@ -65,6 +65,7 @@ namespace gen {
     std::vector<double> polarize_pol;
     std::map<int, float> polarizations;
     int BmixingOption = 1;
+    bool forceAllRequestedDecays_ = false;
     edm::ParameterSet* fPSet;
 
     static CLHEP::HepRandomEngine* fRandomEngine;
