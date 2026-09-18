@@ -329,6 +329,40 @@ trackingPhase2PU140.toModify(convTrackCandidates,
     phase2clustersToSkip = 'convClusters'
 )
 
+# Run-3 heavy-ion single-leg recovery, limited by the event HF tower sum.
+from Configuration.Eras.Modifier_run3_common_cff import run3_common
+(pp_on_AA & run3_common).toReplaceWith(
+    photonConvTrajSeedFromSingleLeg,
+    photonConvTrajSeedFromSingleLeg.clone(
+        vtxMinDoF = 4.0,
+        ClusterCheckPSet = dict(MaxNumberOfStripClusters = 1000000),
+        OrderedHitsFactoryPSet = dict(maxHitPairsPerTrackAndGenerator = 10),
+        RegionFactoryPSet = dict(
+            ComponentName = "GlobalRegionProducerFromBeamSpot",
+            RegionPSet = dict(
+                originRadius = 10.0,
+                ptMin = 0.20,
+                useMultipleScattering = cms.bool(True),
+            ),
+        ),
+        towers = cms.InputTag("towerMaker"),
+        maxHFTowerSum = cms.double(5300.0),
+    ),
+)
+(pp_on_AA & run3_common).toModify(
+    convCkfTrajectoryBuilder,
+    lostHitPenalty = 15.0,
+)
+(pp_on_AA & run3_common).toModify(
+    convStepChi2Est,
+    MaxChi2 = 16.0,
+    nSigma = 3.0,
+)
+(pp_on_AA & run3_common).toModify(
+    convTrackCandidates,
+    numHitsForSeedCleaner = 2,
+)
+
 import TrackingTools.TrackFitters.RungeKuttaFitters_cff
 convStepFitterSmoother = TrackingTools.TrackFitters.RungeKuttaFitters_cff.KFFittingSmootherWithOutliersRejectionAndRK.clone(
     ComponentName = 'convStepFitterSmoother',
