@@ -1,4 +1,5 @@
 #include "PhotonConversionTrajectorySeedProducerFromSingleLegAlgo.h"
+#include "OccupancyScaledRegionProducerFromBeamSpot.h"
 #include "FWCore/Utilities/interface/isFinite.h"
 #include "FWCore/Utilities/interface/Likely.h"
 
@@ -17,8 +18,15 @@ PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::PhotonConversionTraject
     : theHitsGenerator(new CombinedHitPairGeneratorForPhotonConversion(
           conf.getParameter<edm::ParameterSet>("OrderedHitsFactoryPSet"), iC)),
       theSeedCreator(new SeedForPhotonConversion1Leg(conf.getParameter<edm::ParameterSet>("SeedCreatorPSet"), iC)),
-      theRegionProducer(
-          new GlobalTrackingRegionProducerFromBeamSpot(conf.getParameter<edm::ParameterSet>("RegionFactoryPSet"), iC)),
+      theRegionProducer([&]() -> std::unique_ptr<TrackingRegionProducer> {
+        auto const& regionConfig = conf.getParameter<edm::ParameterSet>("RegionFactoryPSet");
+        auto const& regionPSet = regionConfig.getParameter<edm::ParameterSet>("RegionPSet");
+        if (regionPSet.existsAs<bool>("originRScaling4BigEvts") &&
+            regionPSet.getParameter<bool>("originRScaling4BigEvts")) {
+          return std::make_unique<OccupancyScaledRegionProducerFromBeamSpot>(regionConfig, iC);
+        }
+        return std::make_unique<GlobalTrackingRegionProducerFromBeamSpot>(regionConfig, iC);
+      }()),
       theClusterCheck(conf.getParameter<edm::ParameterSet>("ClusterCheckPSet"), iC),
       theSilentOnClusterCheck(conf.getParameter<edm::ParameterSet>("ClusterCheckPSet")
                                   .getUntrackedParameter<bool>("silentClusterCheck", false)),
@@ -74,6 +82,10 @@ void PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::find(const edm::Ev
   event.getByToken(token_bs, recoBeamSpotHandle);
 
   regions = theRegionProducer->regions(event, setup);
+  if (regions.empty()) {
+    seedCollection = nullptr;
+    return;
+  }
 
   // find seeds
   loopOnTracks();

@@ -279,7 +279,7 @@ from Configuration.ProcessModifiers.pp_on_AA_cff import pp_on_AA
 pp_on_AA.toModify(photonConvTrajSeedFromSingleLeg, vtxMinDoF = 999999.)
     
 
-# Run-3 heavy-ion single-leg recovery, limited by the event HF tower sum.
+# Run-3 heavy-ion single-leg recovery with occupancy-scaled beam-spot regions.
 from Configuration.Eras.Modifier_run3_common_cff import run3_common
 (pp_on_AA & run3_common).toReplaceWith(
     photonConvTrajSeedFromSingleLeg,
@@ -293,10 +293,13 @@ from Configuration.Eras.Modifier_run3_common_cff import run3_common
                 originRadius = 10.0,
                 ptMin = 0.20,
                 useMultipleScattering = cms.bool(True),
+                originRScaling4BigEvts = True,
+                minOriginR = 0.0,
+                scalingStartNPix = 20000.0,
+                scalingEndNPix = 35000.0,
+                pixelClustersForScaling = cms.InputTag("siPixelClusters"),
             ),
         ),
-        towers = cms.InputTag("towerMaker"),
-        maxHFTowerSum = cms.double(5300.0),
     ),
 )
 

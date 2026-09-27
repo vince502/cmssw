@@ -54,7 +54,7 @@ private:
 
   std::unique_ptr<CombinedHitPairGeneratorForPhotonConversion> theHitsGenerator;
   std::unique_ptr<SeedForPhotonConversion1Leg> theSeedCreator;
-  std::unique_ptr<GlobalTrackingRegionProducerFromBeamSpot> theRegionProducer;
+  std::unique_ptr<TrackingRegionProducer> theRegionProducer;
 
   ClusterChecker theClusterCheck;
   bool theSilentOnClusterCheck;
