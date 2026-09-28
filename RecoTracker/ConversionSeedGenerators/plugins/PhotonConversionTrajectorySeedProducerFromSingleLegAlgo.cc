@@ -14,6 +14,20 @@
 
 namespace {
   inline double sqr(double a) { return a * a; }
+
+  std::unique_ptr<TrackingRegionProducer> makeRegionProducer(const edm::ParameterSet& conf, edm::ConsumesCollector& iC) {
+    auto const& regionConfig = conf.getParameter<edm::ParameterSet>("RegionFactoryPSet");
+    if (conf.existsAs<bool>("useVertexTrackingRegions") && conf.getParameter<bool>("useVertexTrackingRegions")) {
+      if (regionConfig.getParameter<std::string>("ComponentName") != "GlobalTrackingRegionWithVerticesProducer") {
+        throw cms::Exception("Configuration")
+            << "Vertex tracking regions require GlobalTrackingRegionWithVerticesProducer";
+      }
+      return std::unique_ptr<TrackingRegionProducer>(TrackingRegionProducerFactory::get()->create(
+          regionConfig.getParameter<std::string>("ComponentName"), regionConfig, edm::ConsumesCollector(iC)));
+    }
+    // Unmodified configurations continue to use the beam-spot region.
+    return std::make_unique<GlobalTrackingRegionProducerFromBeamSpot>(regionConfig, iC);
+  }
 }  // namespace
 
 PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::PhotonConversionTrajectorySeedProducerFromSingleLegAlgo(
@@ -21,19 +35,7 @@ PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::PhotonConversionTraject
     : theHitsGenerator(new CombinedHitPairGeneratorForPhotonConversion(
           conf.getParameter<edm::ParameterSet>("OrderedHitsFactoryPSet"), iC)),
       theSeedCreator(new SeedForPhotonConversion1Leg(conf.getParameter<edm::ParameterSet>("SeedCreatorPSet"), iC)),
-      theRegionProducer([&]() -> std::unique_ptr<TrackingRegionProducer> {
-        auto const& regionConfig = conf.getParameter<edm::ParameterSet>("RegionFactoryPSet");
-        // Keep the original beam-spot producer for every configuration that has not opted in.
-        if (conf.existsAs<bool>("useVertexTrackingRegions") && conf.getParameter<bool>("useVertexTrackingRegions")) {
-          if (regionConfig.getParameter<std::string>("ComponentName") != "GlobalTrackingRegionWithVerticesProducer") {
-            throw cms::Exception("Configuration")
-                << "Vertex tracking regions require GlobalTrackingRegionWithVerticesProducer";
-          }
-          return std::unique_ptr<TrackingRegionProducer>(TrackingRegionProducerFactory::get()->create(
-              regionConfig.getParameter<std::string>("ComponentName"), regionConfig, edm::ConsumesCollector(iC)));
-        }
-        return std::make_unique<GlobalTrackingRegionProducerFromBeamSpot>(regionConfig, iC);
-      }()),
+      theRegionProducer(makeRegionProducer(conf, iC)),
       _useVertexTrackingRegions(conf.existsAs<bool>("useVertexTrackingRegions") &&
                                 conf.getParameter<bool>("useVertexTrackingRegions")),
       theClusterCheck(conf.getParameter<edm::ParameterSet>("ClusterCheckPSet"), iC),
