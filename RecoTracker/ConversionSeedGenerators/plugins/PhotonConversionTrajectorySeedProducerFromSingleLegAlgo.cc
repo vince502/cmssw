@@ -1,7 +1,10 @@
 #include "PhotonConversionTrajectorySeedProducerFromSingleLegAlgo.h"
-#include "OccupancyScaledRegionProducerFromBeamSpot.h"
+#include "RecoTracker/TkTrackingRegions/interface/TrackingRegionProducerFactory.h"
 #include "FWCore/Utilities/interface/isFinite.h"
 #include "FWCore/Utilities/interface/Likely.h"
+#include "FWCore/Utilities/interface/Exception.h"
+
+#include <cmath>
 
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -20,13 +23,19 @@ PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::PhotonConversionTraject
       theSeedCreator(new SeedForPhotonConversion1Leg(conf.getParameter<edm::ParameterSet>("SeedCreatorPSet"), iC)),
       theRegionProducer([&]() -> std::unique_ptr<TrackingRegionProducer> {
         auto const& regionConfig = conf.getParameter<edm::ParameterSet>("RegionFactoryPSet");
-        auto const& regionPSet = regionConfig.getParameter<edm::ParameterSet>("RegionPSet");
-        if (regionPSet.existsAs<bool>("originRScaling4BigEvts") &&
-            regionPSet.getParameter<bool>("originRScaling4BigEvts")) {
-          return std::make_unique<OccupancyScaledRegionProducerFromBeamSpot>(regionConfig, iC);
+        // Keep the original beam-spot producer for every configuration that has not opted in.
+        if (conf.existsAs<bool>("useVertexTrackingRegions") && conf.getParameter<bool>("useVertexTrackingRegions")) {
+          if (regionConfig.getParameter<std::string>("ComponentName") != "GlobalTrackingRegionWithVerticesProducer") {
+            throw cms::Exception("Configuration")
+                << "Vertex tracking regions require GlobalTrackingRegionWithVerticesProducer";
+          }
+          return std::unique_ptr<TrackingRegionProducer>(TrackingRegionProducerFactory::get()->create(
+              regionConfig.getParameter<std::string>("ComponentName"), regionConfig, edm::ConsumesCollector(iC)));
         }
         return std::make_unique<GlobalTrackingRegionProducerFromBeamSpot>(regionConfig, iC);
       }()),
+      _useVertexTrackingRegions(conf.existsAs<bool>("useVertexTrackingRegions") &&
+                                conf.getParameter<bool>("useVertexTrackingRegions")),
       theClusterCheck(conf.getParameter<edm::ParameterSet>("ClusterCheckPSet"), iC),
       theSilentOnClusterCheck(conf.getParameter<edm::ParameterSet>("ClusterCheckPSet")
                                   .getUntrackedParameter<bool>("silentClusterCheck", false)),
@@ -224,6 +233,13 @@ void PhotonConversionTrajectorySeedProducerFromSingleLegAlgo::loopOnPriVtx(
 
     for (IR ir = regions.begin(), irEnd = regions.end(); ir < irEnd; ++ir) {
       const TrackingRegion& region = **ir;
+      // Vertex-based regions must be paired only with the track-selected vertex.
+      // The beam-spot path still tries its single region with every selected vertex.
+      if (_useVertexTrackingRegions &&
+          (std::abs(region.origin().x() - vtx.x()) > 1.e-3 ||
+           std::abs(region.origin().y() - vtx.y()) > 1.e-3 ||
+           std::abs(region.origin().z() - vtx.z()) > 1.e-3))
+        continue;
 
 #ifdef debugTSPFSLA
       ss << "[PrintRegion] " << region.print() << std::endl;

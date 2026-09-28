@@ -279,7 +279,22 @@ from Configuration.ProcessModifiers.pp_on_AA_cff import pp_on_AA
 pp_on_AA.toModify(photonConvTrajSeedFromSingleLeg, vtxMinDoF = 999999.)
     
 
-# Run-3 heavy-ion single-leg recovery with occupancy-scaled beam-spot regions.
+# The standard HI vertex regions, with the MixedTriplet occupancy scaling.
+# Keep its 0.4 GeV default explicit, then lower only the single-leg pT threshold.
+from RecoTracker.TkTrackingRegions.globalTrackingRegionWithVertices_cff import globalTrackingRegionWithVertices as _vertexRegions
+_singleLegVertexRegionDefault = _vertexRegions.RegionPSet.clone(
+    fixedError = 3.75,
+    ptMin = 0.4,
+    originRadius = 1.5,
+    originRScaling4BigEvts = True,
+    ptMinScaling4BigEvts = True,
+    minOriginR = 0.0,
+    maxPtMin = 0.7,
+    scalingStartNPix = 20000.0,
+    scalingEndNPix = 35000.0,
+)
+_singleLegVertexRegionLowPt = _singleLegVertexRegionDefault.clone(ptMin = 0.20)
+
 from Configuration.Eras.Modifier_run3_common_cff import run3_common
 (pp_on_AA & run3_common).toReplaceWith(
     photonConvTrajSeedFromSingleLeg,
@@ -287,18 +302,10 @@ from Configuration.Eras.Modifier_run3_common_cff import run3_common
         vtxMinDoF = 4.0,
         ClusterCheckPSet = dict(MaxNumberOfStripClusters = 1000000),
         OrderedHitsFactoryPSet = dict(maxHitPairsPerTrackAndGenerator = 10),
-        RegionFactoryPSet = dict(
-            ComponentName = "GlobalRegionProducerFromBeamSpot",
-            RegionPSet = dict(
-                originRadius = 10.0,
-                ptMin = 0.20,
-                useMultipleScattering = cms.bool(True),
-                originRScaling4BigEvts = True,
-                minOriginR = 0.0,
-                scalingStartNPix = 20000.0,
-                scalingEndNPix = 35000.0,
-                pixelClustersForScaling = cms.InputTag("siPixelClusters"),
-            ),
+        useVertexTrackingRegions = cms.bool(True),
+        RegionFactoryPSet = cms.PSet(
+            ComponentName = cms.string("GlobalTrackingRegionWithVerticesProducer"),
+            RegionPSet = _singleLegVertexRegionLowPt,
         ),
     ),
 )
