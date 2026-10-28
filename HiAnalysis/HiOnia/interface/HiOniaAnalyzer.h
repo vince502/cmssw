@@ -56,6 +56,7 @@
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 
 #include "HiAnalysis/HiOnia/interface/MyCommonHistoManager.h"
+#include "HiAnalysis/HiOnia/interface/RecoMuonIndex.h"
 #include "DataFormats/Math/interface/deltaR.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
@@ -102,7 +103,8 @@ private:
                         bool (HiOniaAnalyzer::*callFunc3)(const reco::TrackRef));
 
   reco::GenParticleRef findDaughterRef(reco::GenParticleRef GenParticleDaughter, int GenParticlePDG);
-  int IndexOfThisMuon(TLorentzVector* v1, bool isGen = false);
+  int IndexOfThisMuon(const TLorentzVector* v1, int charge);
+  int IndexOfThisGenMuon(const TLorentzVector* v1);
   int IndexOfThisTrack(TLorentzVector* v1, bool isGen = false);
   int IndexOfThisJpsi(int mu1_idx, int mu2_idx, int flipJpsi = 0);
   void fillGenInfo();
@@ -621,7 +623,7 @@ private:
 
   std::map<std::string, int> mapTriggerNameToIntFired_;
   std::map<std::string, int> mapTriggerNameToPrescaleFac_;
-  std::map<long int, int> mapMuonMomToIndex_;
+  onia::RecoMuonIndex mapMuonMomToIndex_;
   std::map<long int, int> mapGenMuonMomToIndex_;
   std::map<long int, int> mapTrkMomToIndex_;
 

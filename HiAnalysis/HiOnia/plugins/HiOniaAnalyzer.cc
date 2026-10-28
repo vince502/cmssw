@@ -499,8 +499,8 @@ void HiOniaAnalyzer::fillTreeMuon(const pat::Muon* muon, int iType, ULong64_t tr
     Reco_mu_L1_4mom_phi.push_back(vMuonL1.Phi());
     Reco_mu_L1_4mom_m.push_back(vMuonL1.M());
 
-    //Fill map of the muon indices. Use long int keys, to avoid rounding errors on a float key. Implies a precision of 10^-6
-    mapMuonMomToIndex_[FloatToIntkey(vMuon.Pt())] = Reco_mu_size;
+    // Match all four fields; duplicate keys are ambiguous and must not overwrite a row.
+    mapMuonMomToIndex_.insert(vMuon.Pt(), vMuon.Eta(), vMuon.Phi(), muon->charge(), Reco_mu_size);
 
     Reco_mu_trig[Reco_mu_size] = trigBits;
 
@@ -645,8 +645,8 @@ void HiOniaAnalyzer::fillTreeJpsi(int count) {
       }
 
       if (muon1->charge() > muon2->charge()) {
-        Reco_QQ_mupl_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon1);  //needs the non-flipped muon momentum
-        Reco_QQ_mumi_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon2);
+        Reco_QQ_mupl_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon1, muon1->charge());  // non-flipped momentum
+        Reco_QQ_mumi_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon2, muon2->charge());
 
         if (_flipJpsiDirection > 0) {
           iTrack_mupl = mu1Trk;
@@ -670,8 +670,8 @@ void HiOniaAnalyzer::fillTreeJpsi(int count) {
         }
 
       } else {
-        Reco_QQ_mupl_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon2);  //needs the non-flipped muon momentum
-        Reco_QQ_mumi_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon1);
+        Reco_QQ_mupl_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon2, muon2->charge());  // non-flipped momentum
+        Reco_QQ_mumi_idx[Reco_QQ_size] = IndexOfThisMuon(&vMuon1, muon1->charge());
 
         if (_flipJpsiDirection > 0) {
           iTrack_mupl = mu2Trk;
@@ -977,6 +977,8 @@ void HiOniaAnalyzer::InitEvent() {
 
   _thePassedCats.clear();
   _thePassedCands.clear();
+  // Muon membership is event-local; do not match eta values from earlier events.
+  EtaOfWantedMuons.clear();
 
   Reco_QQ_size = 0;
   Reco_mu_size = 0;

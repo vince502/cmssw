@@ -28,8 +28,8 @@ void HiOniaAnalyzer::fillTreeDimuTrk(int count) {
       TLorentzVector vMuon2 = lorentzMomentum(muon2->p4());
       TLorentzVector vTrk3 = lorentzMomentum(trk3->p4());
 
-      int mu1_idx = IndexOfThisMuon(&vMuon1);
-      int mu2_idx = IndexOfThisMuon(&vMuon2);
+      int mu1_idx = IndexOfThisMuon(&vMuon1, muon1->charge());
+      int mu2_idx = IndexOfThisMuon(&vMuon2, muon2->charge());
       int trk3_idx = IndexOfThisTrack(&vTrk3);
 
       //The dimuon has to pass the Jpsi kinematic cuts

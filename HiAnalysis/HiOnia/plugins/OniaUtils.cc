@@ -208,14 +208,15 @@ bool HiOniaAnalyzer::checkBcCuts(const pat::CompositeCandidate* cand,
     return false;
 };
 
-int HiOniaAnalyzer::IndexOfThisMuon(TLorentzVector* v1, bool isGen) {
-  const auto& mapMuIdx = (isGen ? mapGenMuonMomToIndex_ : mapMuonMomToIndex_);
-  const long int& muPt = FloatToIntkey(v1->Pt());
+int HiOniaAnalyzer::IndexOfThisMuon(const TLorentzVector* v1, int charge) {
+  return mapMuonMomToIndex_.at(v1->Pt(), v1->Eta(), v1->Phi(), charge);
+};
 
-  if (mapMuIdx.count(muPt) == 0)
-    return -1;
-  else
-    return mapMuIdx.at(muPt);
+// Generator matching is kept separate and unchanged by this reconstructed-muon fix.
+int HiOniaAnalyzer::IndexOfThisGenMuon(const TLorentzVector* v1) {
+  const long int muPt = FloatToIntkey(v1->Pt());
+  const auto found = mapGenMuonMomToIndex_.find(muPt);
+  return found == mapGenMuonMomToIndex_.end() ? -1 : found->second;
 };
 
 int HiOniaAnalyzer::IndexOfThisTrack(TLorentzVector* v1, bool isGen) {

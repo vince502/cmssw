@@ -27,9 +27,9 @@ void HiOniaAnalyzer::fillTreeBc(int count) {
       TLorentzVector vMuon2 = lorentzMomentum(muon2->p4());
       TLorentzVector vMuon3 = lorentzMomentum(muon3->p4());
 
-      int mu1_idx = IndexOfThisMuon(&vMuon1);  //the muon list contains unchanged muons (even in jpsiFlipping case)
-      int mu2_idx = IndexOfThisMuon(&vMuon2);
-      int mu3_idx = IndexOfThisMuon(&vMuon3);
+      int mu1_idx = IndexOfThisMuon(&vMuon1, muon1->charge());  // unchanged, non-flipped momentum
+      int mu2_idx = IndexOfThisMuon(&vMuon2, muon2->charge());
+      int mu3_idx = IndexOfThisMuon(&vMuon3, muon3->charge());
 
       int flipJ = (aBcCand->hasUserInt("flipJpsi")) ? aBcCand->userInt("flipJpsi") : 0;
 
